@@ -94,7 +94,6 @@ const templateEntries = [
   { section: "regular_payment", name: "EE Top Up", amount: 9 },
   { section: "regular_payment", name: "James", amount: 400 },
   { section: "regular_payment", name: "Klarna", amount: 55 },
-
 ];
 
 function money(value) {
@@ -514,136 +513,144 @@ export default function App() {
         </button>
       </form>
 
-      {[
-        "income",
-        "carried_over",
-        "household_bill",
-        "regular_payment",
-      ].map((section) => {
-        const sectionTotal = entries
-          .filter((e) => e.section === section)
-          .reduce((sum, e) => sum + Number(e.amount), 0);
+      {["income", "carried_over", "household_bill", "regular_payment"].map(
+        (section) => {
+          const sectionTotal = entries
+            .filter((e) => e.section === section)
+            .reduce((sum, e) => sum + Number(e.amount), 0);
 
-        return (
-          <div key={section} className="section-block">
-            <button
-              type="button"
-              className="section-header"
-              onClick={() => toggleSection(section)}
-            >
-              <span>
-                {openSections[section] ? "▼" : "▶"}{" "}
-                {section.replaceAll("_", " ").toUpperCase()}
-              </span>
-              <span className="section-total">{money(sectionTotal)}</span>
-            </button>
+          return (
+            <div key={section} className="section-block">
+              <button
+                type="button"
+                className="section-header"
+                onClick={() => toggleSection(section)}
+              >
+                <span>
+                  {openSections[section] ? "▼" : "▶"}{" "}
+                  {section.replaceAll("_", " ").toUpperCase()}
+                </span>
+                <span className="section-total">{money(sectionTotal)}</span>
+              </button>
 
-            {openSections[section] && (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Amount</th>
-                    <th>Due</th>
-                    <th>Paid</th>
-                    <th></th>
-                  </tr>
-                </thead>
+              {openSections[section] && (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Amount</th>
+                      {section === "household_bill" && <th>Due</th>}
+                      {section !== "income" && section !== "carried_over" && (
+                        <th>Paid</th>
+                      )}
+                      <th></th>
+                    </tr>
+                  </thead>
 
-                <tbody>
-                  {entries
-                    .filter((e) => e.section === section)
-                    .map((e) => (
-                      <tr key={e.id} className={e.paid ? "paid-row" : ""}>
-                        <td>
-                          <input
-                            value={e.name}
-                            onChange={(ev) => {
-                              const val = ev.target.value;
-                              setEntries((prev) =>
-                                prev.map((x) =>
-                                  x.id === e.id ? { ...x, name: val } : x,
-                                ),
-                              );
-                              updateEntry(e.id, "name", val);
-                            }}
-                          />
-                        </td>
+                  <tbody>
+                    {entries
+                      .filter((e) => e.section === section)
+                      .map((e) => (
+                        <tr key={e.id} className={e.paid ? "paid-row" : ""}>
+                          <td>
+                            <input
+                              value={e.name}
+                              onChange={(ev) => {
+                                const val = ev.target.value;
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === e.id ? { ...x, name: val } : x,
+                                  ),
+                                );
+                                updateEntry(e.id, "name", val);
+                              }}
+                            />
+                          </td>
 
-                        <td>
-                          <input
-                            type="number"
-                            value={e.amount}
-                            onChange={(ev) => {
-                              const val = ev.target.value;
-                              setEntries((prev) =>
-                                prev.map((x) =>
-                                  x.id === e.id ? { ...x, amount: val } : x,
-                                ),
-                              );
-                              updateEntry(e.id, "amount", Number(val));
-                            }}
-                          />
-                        </td>
+                          <td>
+                            <input
+                              type="number"
+                              value={e.amount}
+                              onChange={(ev) => {
+                                const val = ev.target.value;
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === e.id ? { ...x, amount: val } : x,
+                                  ),
+                                );
+                                updateEntry(e.id, "amount", Number(val));
+                              }}
+                            />
+                          </td>
 
-                        <td>
-                          <input
-                            type="number"
-                            value={e.due_day || ""}
-                            onChange={(ev) => {
-                              const val = ev.target.value;
-                              setEntries((prev) =>
-                                prev.map((x) =>
-                                  x.id === e.id ? { ...x, due_day: val } : x,
-                                ),
-                              );
-                              updateEntry(
-                                e.id,
-                                "due_day",
-                                val ? Number(val) : null,
-                              );
-                            }}
-                          />
-                        </td>
+                          {section === "household_bill" && (
+                            <td>
+                              <input
+                                type="number"
+                                value={e.due_day || ""}
+                                onChange={(ev) => {
+                                  const val = ev.target.value;
+                                  setEntries((prev) =>
+                                    prev.map((x) =>
+                                      x.id === e.id
+                                        ? { ...x, due_day: val }
+                                        : x,
+                                    ),
+                                  );
+                                  updateEntry(
+                                    e.id,
+                                    "due_day",
+                                    val ? Number(val) : null,
+                                  );
+                                }}
+                              />
+                            </td>
+                          )}
 
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={!!e.paid}
-                            onChange={(ev) => {
-                              const checked = ev.target.checked;
-                              setEntries((prev) =>
-                                prev.map((x) =>
-                                  x.id === e.id ? { ...x, paid: checked } : x,
-                                ),
-                              );
-                              updateEntry(e.id, "paid", checked);
-                            }}
-                          />
-                        </td>
+                          {section !== "income" &&
+                            section !== "carried_over" && (
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={!!e.paid}
+                                  onChange={(ev) => {
+                                    const checked = ev.target.checked;
+                                    setEntries((prev) =>
+                                      prev.map((x) =>
+                                        x.id === e.id
+                                          ? { ...x, paid: checked }
+                                          : x,
+                                      ),
+                                    );
+                                    updateEntry(e.id, "paid", checked);
+                                  }}
+                                />
+                              </td>
+                            )}
 
-                        <td className="row-actions">
-                          <button
-                            title="Duplicate"
-                            onClick={() => duplicateEntry(e)}
-                          >
-                            ⧉
-                          </button>
-                          <button
-                            title="Delete"
-                            onClick={() => deleteEntry(e.id)}
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
-      })}
+                          <td className="row-actions">
+                            <button
+                              title="Duplicate"
+                              onClick={() => duplicateEntry(e)}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              title="Delete"
+                              onClick={() => deleteEntry(e.id)}
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        },
+      )}
     </div>
   );
 }
