@@ -96,8 +96,10 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [month] = useState("May");
-  const [year] = useState(2026);
+  const [month, setMonth] = useState("May");
+const [year, setYear] = useState(2026);
+  const [targetMonth, setTargetMonth] = useState("June");
+  const [targetYear, setTargetYear] = useState(2026);
   const [entries, setEntries] = useState([]);
 
   const [form, setForm] = useState({
@@ -120,8 +122,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session?.user) loadEntries();
-  }, [session]);
+  if (session?.user) loadEntries();
+}, [session, month, year]);
 
   async function signIn() {
     const { error } = await supabase.auth.signInWithPassword({
@@ -193,6 +195,42 @@ export default function App() {
 
     if (error) alert(error.message);
     else loadEntries();
+  }
+
+  async function duplicateMonth() {
+    if (!targetMonth || !targetYear) {
+      alert("Enter a target month and year.");
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("budget_entries")
+      .select("id")
+      .eq("month", targetMonth)
+      .eq("year", Number(targetYear))
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      alert("Target month already has data. Clear it first if needed.");
+      return;
+    }
+
+    const rows = entries.map((entry) => ({
+      user_id: session.user.id,
+      month: targetMonth,
+      year: Number(targetYear),
+      section: entry.section,
+      name: entry.name,
+      amount: entry.amount,
+      due_day: entry.due_day,
+      week_number: entry.week_number,
+      notes: entry.notes,
+    }));
+
+    const { error } = await supabase.from("budget_entries").insert(rows);
+
+    if (error) alert(error.message);
+    else alert(`Copied ${month} ${year} to ${targetMonth} ${targetYear}.`);
   }
 
   async function addEntry(e) {
@@ -297,8 +335,40 @@ export default function App() {
         <button onClick={signOut}>Logout</button>
       </div>
 
-      <button onClick={addTemplate}>Create Monthly Template</button>
-      <button onClick={clearMonth}>Clear Month</button>
+      <div className="month-switch">
+  <input
+    placeholder="Month"
+    value={month}
+    onChange={(e) => setMonth(e.target.value)}
+  />
+
+  <input
+    type="number"
+    placeholder="Year"
+    value={year}
+    onChange={(e) => setYear(Number(e.target.value))}
+  />
+</div>
+
+      <div className="month-tools">
+        <button onClick={addTemplate}>Create Monthly Template</button>
+        <button onClick={clearMonth}>Clear Month</button>
+
+        <input
+          placeholder="Target month"
+          value={targetMonth}
+          onChange={(e) => setTargetMonth(e.target.value)}
+        />
+
+        <input
+          placeholder="Target year"
+          type="number"
+          value={targetYear}
+          onChange={(e) => setTargetYear(e.target.value)}
+        />
+
+        <button onClick={duplicateMonth}>Duplicate Month</button>
+      </div>
 
       <div className="summary-grid">
         <div>

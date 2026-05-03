@@ -190,3 +190,10 @@ th {
   color: #d4af37;
   margin-bottom: 10px;
 }
+
+.month-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
