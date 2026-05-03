@@ -111,10 +111,19 @@ export default function App() {
   const [password, setPassword] = useState("");
 
   const [month, setMonth] = useState("May");
-const [year, setYear] = useState(2026);
+  const [year, setYear] = useState(2026);
   const [targetMonth, setTargetMonth] = useState("June");
   const [targetYear, setTargetYear] = useState(2026);
   const [entries, setEntries] = useState([]);
+  
+
+  const [openSections, setOpenSections] = useState({
+    income: true,
+    carried_over: true,
+    household_bill: false,
+    regular_payment: false,
+    weekly_spending: true,
+  });
 
   const [form, setForm] = useState({
     section: "household_bill",
@@ -136,8 +145,8 @@ const [year, setYear] = useState(2026);
   }, []);
 
   useEffect(() => {
-  if (session?.user) loadEntries();
-}, [session, month, year]);
+    if (session?.user) loadEntries();
+  }, [session, month, year]);
 
   async function signIn() {
     const { error } = await supabase.auth.signInWithPassword({
@@ -301,6 +310,13 @@ const [year, setYear] = useState(2026);
     else loadEntries();
   }
 
+  function toggleSection(section) {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  }
+
   const totals = useMemo(() => {
     const total = (section) =>
       entries
@@ -350,26 +366,26 @@ const [year, setYear] = useState(2026);
       </div>
 
       <div className="month-switch">
-  <div>
-    <label>Now viewing</label>
-    <select value={month} onChange={(e) => setMonth(e.target.value)}>
-      {months.map((monthName) => (
-        <option key={monthName} value={monthName}>
-          {monthName}
-        </option>
-      ))}
-    </select>
-  </div>
+        <div>
+          <label>Now viewing</label>
+          <select value={month} onChange={(e) => setMonth(e.target.value)}>
+            {months.map((monthName) => (
+              <option key={monthName} value={monthName}>
+                {monthName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-  <div>
-    <label>Year</label>
-    <input
-      type="number"
-      value={year}
-      onChange={(e) => setYear(Number(e.target.value))}
-    />
-  </div>
-</div>
+        <div>
+          <label>Year</label>
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+          />
+        </div>
+      </div>
 
       <div className="month-tools">
         <button onClick={addTemplate}>Create Monthly Template</button>
@@ -392,8 +408,11 @@ const [year, setYear] = useState(2026);
       </div>
 
       <h2 className="viewing-title">
-  Now Viewing: <span>{month} {year}</span>
-</h2>
+        Now Viewing:{" "}
+        <span>
+          {month} {year}
+        </span>
+      </h2>
       <div className="summary-grid">
         <div>
           <span>Income</span>
@@ -463,102 +482,113 @@ const [year, setYear] = useState(2026);
       </form>
 
       {[
-  "income",
-  "carried_over",
-  "household_bill",
-  "regular_payment",
-  "weekly_spending",
-].map((section) => {
-  const sectionTotal = entries
-    .filter((e) => e.section === section)
-    .reduce((sum, e) => sum + Number(e.amount), 0);
+        "income",
+        "carried_over",
+        "household_bill",
+        "regular_payment",
+        "weekly_spending",
+      ].map((section) => {
+        const sectionTotal = entries
+          .filter((e) => e.section === section)
+          .reduce((sum, e) => sum + Number(e.amount), 0);
 
-  return (
-    <div key={section} className="section-block">
-          <h2>
-  {section.replaceAll("_", " ").toUpperCase()}
-  <span className="section-total">{money(sectionTotal)}</span>
-</h2>
+        return (
+          <div key={section} className="section-block">
+            <button
+              type="button"
+              className="section-header"
+              onClick={() => toggleSection(section)}
+            >
+              <span>
+                {openSections[section] ? "▼" : "▶"}{" "}
+                {section.replaceAll("_", " ").toUpperCase()}
+              </span>
+              <span className="section-total">{money(sectionTotal)}</span>
+            </button>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Amount</th>
-                <th>Due</th>
-                <th></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {entries
-                .filter((e) => e.section === section)
-                .map((e) => (
-                  <tr key={e.id}>
-                    <td>
-                      <input
-                        value={e.name}
-                        onChange={(ev) => {
-                          const val = ev.target.value;
-                          setEntries((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id ? { ...x, name: val } : x,
-                            ),
-                          );
-                          updateEntry(e.id, "name", val);
-                        }}
-                      />
-                    </td>
-
-                    <td>
-                      <input
-                        type="number"
-                        value={e.amount}
-                        onChange={(ev) => {
-                          const val = ev.target.value;
-                          setEntries((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id ? { ...x, amount: val } : x,
-                            ),
-                          );
-                          updateEntry(e.id, "amount", Number(val));
-                        }}
-                      />
-                    </td>
-
-                    <td>
-                      <input
-                        type="number"
-                        value={e.due_day || ""}
-                        onChange={(ev) => {
-                          const val = ev.target.value;
-                          setEntries((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id ? { ...x, due_day: val } : x,
-                            ),
-                          );
-                          updateEntry(
-                            e.id,
-                            "due_day",
-                            val ? Number(val) : null,
-                          );
-                        }}
-                      />
-                    </td>
-
-                    <td>
-                      <button onClick={() => duplicateEntry(e)}>
-                        Duplicate
-                      </button>
-                      <button onClick={() => deleteEntry(e.id)}>Delete</button>
-                    </td>
+            {openSections[section] && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Amount</th>
+                    <th>Due</th>
+                    <th></th>
                   </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    })}
+                </thead>
+
+                <tbody>
+                  {entries
+                    .filter((e) => e.section === section)
+                    .map((e) => (
+                      <tr key={e.id}>
+                        <td>
+                          <input
+                            value={e.name}
+                            onChange={(ev) => {
+                              const val = ev.target.value;
+                              setEntries((prev) =>
+                                prev.map((x) =>
+                                  x.id === e.id ? { ...x, name: val } : x,
+                                ),
+                              );
+                              updateEntry(e.id, "name", val);
+                            }}
+                          />
+                        </td>
+
+                        <td>
+                          <input
+                            type="number"
+                            value={e.amount}
+                            onChange={(ev) => {
+                              const val = ev.target.value;
+                              setEntries((prev) =>
+                                prev.map((x) =>
+                                  x.id === e.id ? { ...x, amount: val } : x,
+                                ),
+                              );
+                              updateEntry(e.id, "amount", Number(val));
+                            }}
+                          />
+                        </td>
+
+                        <td>
+                          <input
+                            type="number"
+                            value={e.due_day || ""}
+                            onChange={(ev) => {
+                              const val = ev.target.value;
+                              setEntries((prev) =>
+                                prev.map((x) =>
+                                  x.id === e.id ? { ...x, due_day: val } : x,
+                                ),
+                              );
+                              updateEntry(
+                                e.id,
+                                "due_day",
+                                val ? Number(val) : null,
+                              );
+                            }}
+                          />
+                        </td>
+
+                        <td>
+                          <button onClick={() => duplicateEntry(e)}>
+                            Duplicate
+                          </button>
+                          <button onClick={() => deleteEntry(e.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

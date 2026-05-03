@@ -347,3 +347,29 @@ td button:last-child {
   border: 1px solid #d4af37;
   box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
 }
+
+.section-header {
+  width: 100%;
+  background: transparent;
+  color: #d4af37;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+
+.section-header:hover {
+  transform: none;
+  opacity: 1;
+}
+
+.section-total {
+  color: #f6ead1;
+  font-size: 16px;
+  font-weight: 800;
+}
