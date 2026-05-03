@@ -391,7 +391,9 @@ const [year, setYear] = useState(2026);
         <button onClick={duplicateMonth}>Duplicate Month</button>
       </div>
 
-      <h2 className="viewing-title">Now Viewing: {month} {year}</h2>
+      <h2 className="viewing-title">
+  Now Viewing: <span>{month} {year}</span>
+</h2>
       <div className="summary-grid">
         <div>
           <span>Income</span>
