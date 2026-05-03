@@ -463,14 +463,22 @@ const [year, setYear] = useState(2026);
       </form>
 
       {[
-        "income",
-        "carried_over",
-        "household_bill",
-        "regular_payment",
-        "weekly_spending",
-      ].map((section) => (
-        <div key={section} className="section-block">
-          <h2>{section.replaceAll("_", " ").toUpperCase()}</h2>
+  "income",
+  "carried_over",
+  "household_bill",
+  "regular_payment",
+  "weekly_spending",
+].map((section) => {
+  const sectionTotal = entries
+    .filter((e) => e.section === section)
+    .reduce((sum, e) => sum + Number(e.amount), 0);
+
+  return (
+    <div key={section} className="section-block">
+          <h2>
+  {section.replaceAll("_", " ").toUpperCase()}
+  <span className="section-total">{money(sectionTotal)}</span>
+</h2>
 
           <table>
             <thead>
@@ -549,7 +557,8 @@ const [year, setYear] = useState(2026);
             </tbody>
           </table>
         </div>
-      ))}
+      );
+    })}
     </div>
   );
 }

@@ -228,8 +228,17 @@ td button {
   font-size: 13px;
 }
 
-td button:last-child {
+td button:first-child {
   background: #2a2a2a;
+  color: #f6ead1;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+td button:last-child {
+  background: #3a1212;
+  color: #ffb3b3;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}
   color: #f6ead1;
   border: 1px solid rgba(212, 175, 55, 0.25);
 }
@@ -319,4 +328,22 @@ td button:last-child {
     color: black;
     padding: 0;
   }
+}
+
+.section-block h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-total {
+  color: #f6ead1;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.summary-grid div:nth-child(5),
+.summary-grid div:nth-child(6) {
+  border: 1px solid #d4af37;
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
 }
