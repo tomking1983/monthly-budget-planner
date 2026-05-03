@@ -197,3 +197,27 @@ th {
   gap: 12px;
   margin: 20px 0;
 }
+
+.month-switch {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  align-items: end;
+}
+
+.month-switch div {
+  display: grid;
+  gap: 6px;
+}
+
+.month-switch label {
+  color: #b9a879;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.viewing-title {
+  color: #d4af37;
+  margin: 24px 0 12px;
+}

@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import "./App.css";
+const months = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 const templateEntries = [
   { section: "income", name: "Wage", amount: 2101.51 },
   { section: "carried_over", name: "Money Carried Over", amount: 84 },
@@ -336,18 +350,25 @@ const [year, setYear] = useState(2026);
       </div>
 
       <div className="month-switch">
-  <input
-    placeholder="Month"
-    value={month}
-    onChange={(e) => setMonth(e.target.value)}
-  />
+  <div>
+    <label>Now viewing</label>
+    <select value={month} onChange={(e) => setMonth(e.target.value)}>
+      {months.map((monthName) => (
+        <option key={monthName} value={monthName}>
+          {monthName}
+        </option>
+      ))}
+    </select>
+  </div>
 
-  <input
-    type="number"
-    placeholder="Year"
-    value={year}
-    onChange={(e) => setYear(Number(e.target.value))}
-  />
+  <div>
+    <label>Year</label>
+    <input
+      type="number"
+      value={year}
+      onChange={(e) => setYear(Number(e.target.value))}
+    />
+  </div>
 </div>
 
       <div className="month-tools">
@@ -370,6 +391,7 @@ const [year, setYear] = useState(2026);
         <button onClick={duplicateMonth}>Duplicate Month</button>
       </div>
 
+      <h2 className="viewing-title">Now Viewing: {month} {year}</h2>
       <div className="summary-grid">
         <div>
           <span>Income</span>
