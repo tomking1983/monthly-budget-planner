@@ -468,3 +468,159 @@ td input[type="checkbox"] {
   height: 22px;
   accent-color: #d4af37;
 }
+
+@media (max-width: 760px) {
+  body {
+    background:
+      radial-gradient(circle at top, rgba(212, 175, 55, 0.18), transparent 35%),
+      #070707;
+  }
+
+  .app {
+    padding: 14px;
+  }
+
+  .topbar {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .topbar h1 {
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .topbar button {
+    width: 100%;
+  }
+
+  .month-switch,
+  .month-tools,
+  .entry-form {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .month-switch,
+  .month-tools {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card button,
+  .tool-card input,
+  .tool-card select,
+  .entry-form button,
+  .entry-form input,
+  .entry-form select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .viewing-title {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(7, 7, 7, 0.92);
+    backdrop-filter: blur(10px);
+    padding: 12px 0;
+    margin: 14px 0;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .summary-grid div {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .summary-grid span {
+    font-size: 11px;
+  }
+
+  .summary-grid strong {
+    font-size: 21px;
+  }
+
+  .important-total {
+    grid-column: span 2;
+  }
+
+  .important-total strong {
+    font-size: 30px;
+  }
+
+  .section-block {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .section-header {
+    font-size: 15px;
+    gap: 10px;
+  }
+
+  .section-total {
+    white-space: nowrap;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  th,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tr {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 18px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  td {
+    background: transparent;
+    padding: 7px 0;
+  }
+
+  td:first-child,
+  td:last-child {
+    border-radius: 0;
+  }
+
+  td input {
+    font-size: 16px;
+  }
+
+  .row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .row-actions button {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  td input[type="checkbox"] {
+    width: 28px;
+    height: 28px;
+  }
+}
