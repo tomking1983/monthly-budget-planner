@@ -630,3 +630,85 @@ td input[type="checkbox"] {
     height: 28px;
   }
 }
+
+.control-panel {
+  background: rgba(15, 15, 15, 0.86);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.control-row > div {
+  flex: 1;
+  min-width: 180px;
+}
+
+.tool-card.compact {
+  padding: 14px;
+  border-radius: 18px;
+  gap: 10px;
+}
+
+.tool-card.compact h3 {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.tool-card.compact button,
+.tool-card.compact input,
+.tool-card.compact select {
+  width: 100%;
+}
+
+.month-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.month-label-center {
+  text-align: center;
+  color: #d4af37;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.checkbox-group {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  width: 100%;
+  margin: 10px 0 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.checkbox-group input {
+  width: 18px !important;
+  height: 18px !important;
+  accent-color: #d4af37;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.checkbox-group span {
+  color: #d8caa0;
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+}

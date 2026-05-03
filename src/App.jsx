@@ -374,69 +374,72 @@ export default function App() {
         <button onClick={signOut}>Logout</button>
       </div>
 
-      <div className="month-switch">
-        <div>
-          <label>Now viewing</label>
-          <select value={month} onChange={(e) => setMonth(e.target.value)}>
-            {months.map((monthName) => (
-              <option key={monthName} value={monthName}>
-                {monthName}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="control-panel">
+        <div className="control-row month-row">
+          <div className="month-label-center">Select Month</div>
+          <div>
+            <select value={month} onChange={(e) => setMonth(e.target.value)}>
+              {months.map((monthName) => (
+                <option key={monthName} value={monthName}>
+                  {monthName}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label>Year</label>
-          <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          />
-        </div>
-      </div>
-
-      <div className="month-tools">
-        <div className="tool-card">
-          <h3>Month actions</h3>
-          <button onClick={addTemplate}>Create Monthly Template</button>
-          <button onClick={resetMonthValues}>Reset Values</button>
-          <button className="danger-button" onClick={clearMonth}>
-            Clear Month
-          </button>
-        </div>
-
-        <div className="tool-card">
-          <h3>Duplicate month</h3>
-
-          <select
-            value={targetMonth}
-            onChange={(e) => setTargetMonth(e.target.value)}
-          >
-            {months.map((monthName) => (
-              <option key={monthName} value={monthName}>
-                {monthName}
-              </option>
-            ))}
-          </select>
-
-          <input
-            placeholder="Target year"
-            type="number"
-            value={targetYear}
-            onChange={(e) => setTargetYear(e.target.value)}
-          />
-
-          <label className="checkbox-row">
+          <div>
             <input
-              type="checkbox"
-              checked={resetOnDuplicate}
-              onChange={(e) => setResetOnDuplicate(e.target.checked)}
+              type="number"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
             />
-            Copy structure only, reset amounts to £0
-          </label>
+          </div>
+        </div>
 
-          <button onClick={duplicateMonth}>Duplicate Month</button>
+        <div className="control-row">
+          <div className="tool-card compact">
+            <h3>Month actions</h3>
+            <button onClick={addTemplate}>Create Template</button>
+            <button onClick={resetMonthValues}>Reset</button>
+            <button className="danger-button" onClick={clearMonth}>
+              Clear
+            </button>
+          </div>
+
+          <div className="tool-card compact">
+            <h3>Duplicate</h3>
+
+            <select
+              value={targetMonth}
+              onChange={(e) => setTargetMonth(e.target.value)}
+            >
+              {months.map((monthName) => (
+                <option key={monthName} value={monthName}>
+                  {monthName}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              value={targetYear}
+              onChange={(e) => setTargetYear(e.target.value)}
+            />
+
+            <label className="checkbox-group">
+              <input
+                type="checkbox"
+                checked={resetOnDuplicate}
+                onChange={(e) => setResetOnDuplicate(e.target.checked)}
+              />
+              <strong>
+                <span>Reset amounts to £0</span>
+              </strong>
+              
+            </label>
+
+            <button onClick={duplicateMonth}>Duplicate</button>
+          </div>
         </div>
       </div>
 
@@ -452,15 +455,15 @@ export default function App() {
           <strong>{money(totals.income)}</strong>
         </div>
         <div>
-          <span>Household</span>
+          <span>House Bills</span>
           <strong>{money(totals.household)}</strong>
         </div>
         <div>
-          <span>50%</span>
+          <span>50% Split</span>
           <strong>{money(totals.half)}</strong>
         </div>
         <div>
-          <span>Regular</span>
+          <span>TK Bills</span>
           <strong>{money(totals.regular)}</strong>
         </div>
         <div className="important-total">
@@ -481,7 +484,7 @@ export default function App() {
           <option value="income">Income</option>
           <option value="carried_over">Carried over</option>
           <option value="household_bill">Household bill</option>
-          <option value="regular_payment">Regular payment</option>
+          <option value="regular_payment">TK Bill</option>
         </select>
 
         <input
