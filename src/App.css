@@ -181,3 +181,12 @@ th {
     color: black;
   }
 }
+
+.section-block {
+  margin-bottom: 30px;
+}
+
+.section-block h2 {
+  color: #d4af37;
+  margin-bottom: 10px;
+}

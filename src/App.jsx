@@ -1,6 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import "./App.css";
+const templateEntries = [
+  { section: "income", name: "Wage", amount: 2101.51 },
+  { section: "carried_over", name: "Money Carried Over", amount: 84 },
+
+  { section: "household_bill", name: "TV Licence MBP", amount: 15, due_day: 1 },
+  { section: "household_bill", name: "Wrekin Housing", amount: 739, due_day: 1 },
+  { section: "household_bill", name: "Severn Trent Water", amount: 50, due_day: 1 },
+  { section: "household_bill", name: "Plusnet", amount: 37.99, due_day: 2 },
+  { section: "household_bill", name: "Epson Subscription", amount: 1.99, due_day: 9 },
+  { section: "household_bill", name: "Moneybarn Range Rover", amount: 270.62, due_day: 10 },
+  { section: "household_bill", name: "Creation", amount: 71, due_day: 10 },
+  { section: "household_bill", name: "British Gas", amount: 129.18, due_day: 13 },
+  { section: "household_bill", name: "Shropshire Council", amount: 191.81, due_day: 15 },
+  { section: "household_bill", name: "RAC", amount: 10.54, due_day: 11 },
+  { section: "household_bill", name: "Ring", amount: 4.99, due_day: 9 },
+  { section: "household_bill", name: "Private Internet Access", amount: 10.99 },
+  { section: "household_bill", name: "National Trust", amount: 15 },
+  { section: "household_bill", name: "Amazon Prime", amount: 8.99, due_day: 22 },
+  { section: "household_bill", name: "Netflix", amount: 12.99, due_day: 24 },
+  { section: "household_bill", name: "School", amount: 55, due_day: 99 },
+  { section: "household_bill", name: "Holiday", amount: 36 },
+  { section: "household_bill", name: "Noah Nursery", amount: 60 },
+  { section: "household_bill", name: "Nursery", amount: 56, due_day: 99 },
+  { section: "household_bill", name: "Food", amount: 570, due_day: 99 },
+
+  { section: "regular_payment", name: "DVLA T99CTY", amount: 17.09 },
+  { section: "regular_payment", name: "Apple Bill", amount: 0.99 },
+  { section: "regular_payment", name: "Go Skippy Car Insurance", amount: 67.84 },
+  { section: "regular_payment", name: "iPhone Sky", amount: 30.62 },
+  { section: "regular_payment", name: "Google One", amount: 1.59 },
+  { section: "regular_payment", name: "Spotify", amount: 6.5 },
+  { section: "regular_payment", name: "Debt Plans", amount: 10 },
+  { section: "regular_payment", name: "Animal Friends", amount: 27.12 },
+  { section: "regular_payment", name: "Microsoft 365", amount: 8.99 },
+  { section: "regular_payment", name: "Ionos & Hostinger", amount: 25.19 },
+  { section: "regular_payment", name: "Capital One", amount: 160 },
+  { section: "regular_payment", name: "Crumb", amount: 4.95 },
+  { section: "regular_payment", name: "EE Top Up", amount: 9 },
+  { section: "regular_payment", name: "James", amount: 400 },
+  { section: "regular_payment", name: "Klarna", amount: 55 },
+
+  { section: "weekly_spending", name: "Week 1", amount: 225.99 },
+  { section: "weekly_spending", name: "Week 2", amount: 4.68 },
+  { section: "weekly_spending", name: "Week 3", amount: 0 },
+  { section: "weekly_spending", name: "Week 4", amount: 0 },
+];
 
 function money(value) {
   return `£${Number(value || 0).toFixed(2)}`;
@@ -25,9 +71,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      },
+    );
 
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -37,7 +85,10 @@ export default function App() {
   }, [session]);
 
   async function signIn() {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) alert(error.message);
   }
 
@@ -61,6 +112,20 @@ export default function App() {
 
     if (error) return alert(error.message);
     setEntries(data || []);
+  }
+
+  async function addTemplate() {
+    const rows = templateEntries.map((entry) => ({
+      ...entry,
+      user_id: session.user.id,
+      month,
+      year,
+    }));
+
+    const { error } = await supabase.from("budget_entries").insert(rows);
+
+    if (error) alert(error.message);
+    else loadEntries();
   }
 
   async function addEntry(e) {
@@ -142,8 +207,15 @@ export default function App() {
       <div className="auth-page">
         <div className="auth-card">
           <h1>Monthly Budget Planner</h1>
-          <input placeholder="Email" onChange={(e) => setEmail(e.target.value)} />
-          <input placeholder="Password" type="password" onChange={(e) => setPassword(e.target.value)} />
+          <input
+            placeholder="Email"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            placeholder="Password"
+            type="password"
+            onChange={(e) => setPassword(e.target.value)}
+          />
           <button onClick={signIn}>Login</button>
           <button onClick={signUp}>Create account</button>
         </div>
@@ -158,17 +230,40 @@ export default function App() {
         <button onClick={signOut}>Logout</button>
       </div>
 
+      <button onClick={addTemplate}>Create Monthly Template</button>
+
       <div className="summary-grid">
-        <div><span>Income</span><strong>{money(totals.income)}</strong></div>
-        <div><span>Household</span><strong>{money(totals.household)}</strong></div>
-        <div><span>50%</span><strong>{money(totals.half)}</strong></div>
-        <div><span>Regular</span><strong>{money(totals.regular)}</strong></div>
-        <div><span>Monthly Left</span><strong>{money(totals.monthly)}</strong></div>
-        <div><span>Weekly Left</span><strong>{money(totals.weekly)}</strong></div>
+        <div>
+          <span>Income</span>
+          <strong>{money(totals.income)}</strong>
+        </div>
+        <div>
+          <span>Household</span>
+          <strong>{money(totals.household)}</strong>
+        </div>
+        <div>
+          <span>50%</span>
+          <strong>{money(totals.half)}</strong>
+        </div>
+        <div>
+          <span>Regular</span>
+          <strong>{money(totals.regular)}</strong>
+        </div>
+        <div>
+          <span>Monthly Left</span>
+          <strong>{money(totals.monthly)}</strong>
+        </div>
+        <div>
+          <span>Weekly Left</span>
+          <strong>{money(totals.weekly)}</strong>
+        </div>
       </div>
 
       <form onSubmit={addEntry} className="entry-form">
-        <select value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })}>
+        <select
+          value={form.section}
+          onChange={(e) => setForm({ ...form, section: e.target.value })}
+        >
           <option value="income">Income</option>
           <option value="carried_over">Carried over</option>
           <option value="household_bill">Household bill</option>
@@ -200,68 +295,99 @@ export default function App() {
         />
 
         <button>Add Entry</button>
-        <button type="button" onClick={() => window.print()}>Print / PDF</button>
+        <button type="button" onClick={() => window.print()}>
+          Print / PDF
+        </button>
       </form>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Section</th>
-            <th>Name</th>
-            <th>Amount</th>
-            <th>Due</th>
-            <th></th>
-          </tr>
-        </thead>
+      {[
+        "income",
+        "carried_over",
+        "household_bill",
+        "regular_payment",
+        "weekly_spending",
+      ].map((section) => (
+        <div key={section} className="section-block">
+          <h2>{section.replaceAll("_", " ").toUpperCase()}</h2>
 
-        <tbody>
-          {entries.map((e) => (
-            <tr key={e.id}>
-              <td>{e.section.replaceAll("_", " ")}</td>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Due</th>
+                <th></th>
+              </tr>
+            </thead>
 
-              <td>
-                <input
-                  value={e.name}
-                  onChange={(ev) => {
-                    const val = ev.target.value;
-                    setEntries((prev) => prev.map((x) => x.id === e.id ? { ...x, name: val } : x));
-                    updateEntry(e.id, "name", val);
-                  }}
-                />
-              </td>
+            <tbody>
+              {entries
+                .filter((e) => e.section === section)
+                .map((e) => (
+                  <tr key={e.id}>
+                    <td>
+                      <input
+                        value={e.name}
+                        onChange={(ev) => {
+                          const val = ev.target.value;
+                          setEntries((prev) =>
+                            prev.map((x) =>
+                              x.id === e.id ? { ...x, name: val } : x,
+                            ),
+                          );
+                          updateEntry(e.id, "name", val);
+                        }}
+                      />
+                    </td>
 
-              <td>
-                <input
-                  type="number"
-                  value={e.amount}
-                  onChange={(ev) => {
-                    const val = ev.target.value;
-                    setEntries((prev) => prev.map((x) => x.id === e.id ? { ...x, amount: val } : x));
-                    updateEntry(e.id, "amount", Number(val));
-                  }}
-                />
-              </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={e.amount}
+                        onChange={(ev) => {
+                          const val = ev.target.value;
+                          setEntries((prev) =>
+                            prev.map((x) =>
+                              x.id === e.id ? { ...x, amount: val } : x,
+                            ),
+                          );
+                          updateEntry(e.id, "amount", Number(val));
+                        }}
+                      />
+                    </td>
 
-              <td>
-                <input
-                  type="number"
-                  value={e.due_day || ""}
-                  onChange={(ev) => {
-                    const val = ev.target.value;
-                    setEntries((prev) => prev.map((x) => x.id === e.id ? { ...x, due_day: val } : x));
-                    updateEntry(e.id, "due_day", val ? Number(val) : null);
-                  }}
-                />
-              </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={e.due_day || ""}
+                        onChange={(ev) => {
+                          const val = ev.target.value;
+                          setEntries((prev) =>
+                            prev.map((x) =>
+                              x.id === e.id ? { ...x, due_day: val } : x,
+                            ),
+                          );
+                          updateEntry(
+                            e.id,
+                            "due_day",
+                            val ? Number(val) : null,
+                          );
+                        }}
+                      />
+                    </td>
 
-              <td>
-                <button onClick={() => duplicateEntry(e)}>Duplicate</button>
-                <button onClick={() => deleteEntry(e.id)}>Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    <td>
+                      <button onClick={() => duplicateEntry(e)}>
+                        Duplicate
+                      </button>
+                      <button onClick={() => deleteEntry(e.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 }
