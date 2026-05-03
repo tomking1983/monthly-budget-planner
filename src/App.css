@@ -450,3 +450,21 @@ td button:last-child {
   color: #ffb3b3;
   border: 1px solid rgba(255, 100, 100, 0.3);
 }
+
+.paid-row td {
+  background: rgba(60, 160, 90, 0.16);
+}
+
+.paid-row input {
+  opacity: 0.75;
+}
+
+.paid-row td:first-child input {
+  text-decoration: line-through;
+}
+
+td input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #d4af37;
+}

@@ -95,10 +95,6 @@ const templateEntries = [
   { section: "regular_payment", name: "James", amount: 400 },
   { section: "regular_payment", name: "Klarna", amount: 55 },
 
-  { section: "weekly_spending", name: "Week 1", amount: 225.99 },
-  { section: "weekly_spending", name: "Week 2", amount: 4.68 },
-  { section: "weekly_spending", name: "Week 3", amount: 0 },
-  { section: "weekly_spending", name: "Week 4", amount: 0 },
 ];
 
 function money(value) {
@@ -122,7 +118,6 @@ export default function App() {
     carried_over: true,
     household_bill: false,
     regular_payment: false,
-    weekly_spending: true,
   });
 
   const [form, setForm] = useState({
@@ -261,6 +256,7 @@ export default function App() {
       due_day: entry.due_day,
       week_number: entry.week_number,
       notes: entry.notes,
+      paid: false,
     }));
 
     const { error } = await supabase.from("budget_entries").insert(rows);
@@ -317,6 +313,7 @@ export default function App() {
       name: `${entry.name} copy`,
       amount: entry.amount,
       due_day: entry.due_day,
+      paid: false,
     });
 
     if (error) alert(error.message);
@@ -486,7 +483,6 @@ export default function App() {
           <option value="carried_over">Carried over</option>
           <option value="household_bill">Household bill</option>
           <option value="regular_payment">Regular payment</option>
-          <option value="weekly_spending">Weekly spending</option>
         </select>
 
         <input
@@ -523,7 +519,6 @@ export default function App() {
         "carried_over",
         "household_bill",
         "regular_payment",
-        "weekly_spending",
       ].map((section) => {
         const sectionTotal = entries
           .filter((e) => e.section === section)
@@ -550,6 +545,7 @@ export default function App() {
                     <th>Name</th>
                     <th>Amount</th>
                     <th>Due</th>
+                    <th>Paid</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -558,7 +554,7 @@ export default function App() {
                   {entries
                     .filter((e) => e.section === section)
                     .map((e) => (
-                      <tr key={e.id}>
+                      <tr key={e.id} className={e.paid ? "paid-row" : ""}>
                         <td>
                           <input
                             value={e.name}
@@ -606,6 +602,22 @@ export default function App() {
                                 "due_day",
                                 val ? Number(val) : null,
                               );
+                            }}
+                          />
+                        </td>
+
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={!!e.paid}
+                            onChange={(ev) => {
+                              const checked = ev.target.checked;
+                              setEntries((prev) =>
+                                prev.map((x) =>
+                                  x.id === e.id ? { ...x, paid: checked } : x,
+                                ),
+                              );
+                              updateEntry(e.id, "paid", checked);
                             }}
                           />
                         </td>
