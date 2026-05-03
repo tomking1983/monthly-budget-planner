@@ -427,3 +427,26 @@ td button:last-child {
   color: #ffb3b3;
   border: 1px solid rgba(255, 100, 100, 0.3);
 }
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.row-actions button {
+  min-width: 34px;
+  padding: 7px 9px;
+  font-size: 14px;
+}
+
+.row-actions button:first-child {
+  background: #2a2a2a;
+  color: #f6ead1;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+.row-actions button:last-child {
+  background: #3a1212;
+  color: #ffb3b3;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}

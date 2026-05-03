@@ -610,12 +610,18 @@ export default function App() {
                           />
                         </td>
 
-                        <td>
-                          <button onClick={() => duplicateEntry(e)}>
-                            Duplicate
+                        <td className="row-actions">
+                          <button
+                            title="Duplicate"
+                            onClick={() => duplicateEntry(e)}
+                          >
+                            ⧉
                           </button>
-                          <button onClick={() => deleteEntry(e.id)}>
-                            Delete
+                          <button
+                            title="Delete"
+                            onClick={() => deleteEntry(e.id)}
+                          >
+                            ✕
                           </button>
                         </td>
                       </tr>
