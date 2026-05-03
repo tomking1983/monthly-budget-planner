@@ -6,19 +6,54 @@ const templateEntries = [
   { section: "carried_over", name: "Money Carried Over", amount: 84 },
 
   { section: "household_bill", name: "TV Licence MBP", amount: 15, due_day: 1 },
-  { section: "household_bill", name: "Wrekin Housing", amount: 739, due_day: 1 },
-  { section: "household_bill", name: "Severn Trent Water", amount: 50, due_day: 1 },
+  {
+    section: "household_bill",
+    name: "Wrekin Housing",
+    amount: 739,
+    due_day: 1,
+  },
+  {
+    section: "household_bill",
+    name: "Severn Trent Water",
+    amount: 50,
+    due_day: 1,
+  },
   { section: "household_bill", name: "Plusnet", amount: 37.99, due_day: 2 },
-  { section: "household_bill", name: "Epson Subscription", amount: 1.99, due_day: 9 },
-  { section: "household_bill", name: "Moneybarn Range Rover", amount: 270.62, due_day: 10 },
+  {
+    section: "household_bill",
+    name: "Epson Subscription",
+    amount: 1.99,
+    due_day: 9,
+  },
+  {
+    section: "household_bill",
+    name: "Moneybarn Range Rover",
+    amount: 270.62,
+    due_day: 10,
+  },
   { section: "household_bill", name: "Creation", amount: 71, due_day: 10 },
-  { section: "household_bill", name: "British Gas", amount: 129.18, due_day: 13 },
-  { section: "household_bill", name: "Shropshire Council", amount: 191.81, due_day: 15 },
+  {
+    section: "household_bill",
+    name: "British Gas",
+    amount: 129.18,
+    due_day: 13,
+  },
+  {
+    section: "household_bill",
+    name: "Shropshire Council",
+    amount: 191.81,
+    due_day: 15,
+  },
   { section: "household_bill", name: "RAC", amount: 10.54, due_day: 11 },
   { section: "household_bill", name: "Ring", amount: 4.99, due_day: 9 },
   { section: "household_bill", name: "Private Internet Access", amount: 10.99 },
   { section: "household_bill", name: "National Trust", amount: 15 },
-  { section: "household_bill", name: "Amazon Prime", amount: 8.99, due_day: 22 },
+  {
+    section: "household_bill",
+    name: "Amazon Prime",
+    amount: 8.99,
+    due_day: 22,
+  },
   { section: "household_bill", name: "Netflix", amount: 12.99, due_day: 24 },
   { section: "household_bill", name: "School", amount: 55, due_day: 99 },
   { section: "household_bill", name: "Holiday", amount: 36 },
@@ -28,7 +63,11 @@ const templateEntries = [
 
   { section: "regular_payment", name: "DVLA T99CTY", amount: 17.09 },
   { section: "regular_payment", name: "Apple Bill", amount: 0.99 },
-  { section: "regular_payment", name: "Go Skippy Car Insurance", amount: 67.84 },
+  {
+    section: "regular_payment",
+    name: "Go Skippy Car Insurance",
+    amount: 67.84,
+  },
   { section: "regular_payment", name: "iPhone Sky", amount: 30.62 },
   { section: "regular_payment", name: "Google One", amount: 1.59 },
   { section: "regular_payment", name: "Spotify", amount: 6.5 },
@@ -115,6 +154,21 @@ export default function App() {
   }
 
   async function addTemplate() {
+    // check if entries already exist for this month
+    const { data: existing } = await supabase
+      .from("budget_entries")
+      .select("id")
+      .eq("month", month)
+      .eq("year", year)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      alert(
+        "This month already has data. Clear it first if you want to recreate.",
+      );
+      return;
+    }
+
     const rows = templateEntries.map((entry) => ({
       ...entry,
       user_id: session.user.id,
@@ -123,6 +177,19 @@ export default function App() {
     }));
 
     const { error } = await supabase.from("budget_entries").insert(rows);
+
+    if (error) alert(error.message);
+    else loadEntries();
+  }
+
+  async function clearMonth() {
+    if (!confirm("Are you sure you want to delete this month's data?")) return;
+
+    const { error } = await supabase
+      .from("budget_entries")
+      .delete()
+      .eq("month", month)
+      .eq("year", year);
 
     if (error) alert(error.message);
     else loadEntries();
@@ -231,6 +298,7 @@ export default function App() {
       </div>
 
       <button onClick={addTemplate}>Create Monthly Template</button>
+      <button onClick={clearMonth}>Clear Month</button>
 
       <div className="summary-grid">
         <div>
