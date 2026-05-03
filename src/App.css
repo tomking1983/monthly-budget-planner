@@ -373,3 +373,54 @@ td button:last-child {
   font-size: 16px;
   font-weight: 800;
 }
+
+.month-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.tool-card {
+  background: rgba(15, 15, 15, 0.86);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 24px;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tool-card h3 {
+  width: 100%;
+  margin: 0 0 4px;
+  color: #d4af37;
+}
+
+.checkbox-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f6ead1;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.important-total {
+  border-color: #d4af37 !important;
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
+}
+
+.important-total strong {
+  font-size: 32px;
+}
+
+.danger-button {
+  background: #3a1212;
+  color: #ffb3b3;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}

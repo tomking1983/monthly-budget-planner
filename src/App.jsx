@@ -114,8 +114,8 @@ export default function App() {
   const [year, setYear] = useState(2026);
   const [targetMonth, setTargetMonth] = useState("June");
   const [targetYear, setTargetYear] = useState(2026);
+  const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
   const [entries, setEntries] = useState([]);
-  
 
   const [openSections, setOpenSections] = useState({
     income: true,
@@ -220,6 +220,19 @@ export default function App() {
     else loadEntries();
   }
 
+  async function resetMonthValues() {
+    if (!confirm("Reset all amounts for this month to £0?")) return;
+
+    const { error } = await supabase
+      .from("budget_entries")
+      .update({ amount: 0 })
+      .eq("month", month)
+      .eq("year", year);
+
+    if (error) alert(error.message);
+    else loadEntries();
+  }
+
   async function duplicateMonth() {
     if (!targetMonth || !targetYear) {
       alert("Enter a target month and year.");
@@ -244,7 +257,7 @@ export default function App() {
       year: Number(targetYear),
       section: entry.section,
       name: entry.name,
-      amount: entry.amount,
+      amount: resetOnDuplicate ? 0 : entry.amount,
       due_day: entry.due_day,
       week_number: entry.week_number,
       notes: entry.notes,
@@ -388,23 +401,47 @@ export default function App() {
       </div>
 
       <div className="month-tools">
-        <button onClick={addTemplate}>Create Monthly Template</button>
-        <button onClick={clearMonth}>Clear Month</button>
+        <div className="tool-card">
+          <h3>Month actions</h3>
+          <button onClick={addTemplate}>Create Monthly Template</button>
+          <button onClick={resetMonthValues}>Reset Values</button>
+          <button className="danger-button" onClick={clearMonth}>
+            Clear Month
+          </button>
+        </div>
 
-        <input
-          placeholder="Target month"
-          value={targetMonth}
-          onChange={(e) => setTargetMonth(e.target.value)}
-        />
+        <div className="tool-card">
+          <h3>Duplicate month</h3>
 
-        <input
-          placeholder="Target year"
-          type="number"
-          value={targetYear}
-          onChange={(e) => setTargetYear(e.target.value)}
-        />
+          <select
+            value={targetMonth}
+            onChange={(e) => setTargetMonth(e.target.value)}
+          >
+            {months.map((monthName) => (
+              <option key={monthName} value={monthName}>
+                {monthName}
+              </option>
+            ))}
+          </select>
 
-        <button onClick={duplicateMonth}>Duplicate Month</button>
+          <input
+            placeholder="Target year"
+            type="number"
+            value={targetYear}
+            onChange={(e) => setTargetYear(e.target.value)}
+          />
+
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={resetOnDuplicate}
+              onChange={(e) => setResetOnDuplicate(e.target.checked)}
+            />
+            Copy structure only, reset amounts to £0
+          </label>
+
+          <button onClick={duplicateMonth}>Duplicate Month</button>
+        </div>
       </div>
 
       <h2 className="viewing-title">
@@ -430,11 +467,11 @@ export default function App() {
           <span>Regular</span>
           <strong>{money(totals.regular)}</strong>
         </div>
-        <div>
+        <div className="important-total">
           <span>Monthly Left</span>
           <strong>{money(totals.monthly)}</strong>
         </div>
-        <div>
+        <div className="important-total">
           <span>Weekly Left</span>
           <strong>{money(totals.weekly)}</strong>
         </div>
