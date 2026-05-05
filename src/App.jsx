@@ -114,8 +114,8 @@ export default function App() {
   const [entryFilter, setEntryFilter] = useState("all");
 
   const [openSections, setOpenSections] = useState({
-    income: true,
-    carried_over: true,
+    income: false,
+    carried_over: false,
     household_bill: false,
     regular_payment: false,
   });
