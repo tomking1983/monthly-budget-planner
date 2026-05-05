@@ -369,6 +369,29 @@ select:focus {
   white-space: nowrap;
 }
 
+.section-breakdown {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.section-breakdown span,
+.section-breakdown strong {
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.section-breakdown strong {
+  color: var(--gold);
+}
+
 table {
   width: 100%;
   border-collapse: separate;
@@ -558,6 +581,12 @@ td input[type="checkbox"]:checked {
   .section-header {
     font-size: 15px;
     gap: 10px;
+    align-items: flex-start;
+  }
+
+  .section-breakdown {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   table,
