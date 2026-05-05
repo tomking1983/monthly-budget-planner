@@ -111,6 +111,7 @@ export default function App() {
   const [targetYear, setTargetYear] = useState(2026);
   const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [entryFilter, setEntryFilter] = useState("all");
 
   const [openSections, setOpenSections] = useState({
     income: true,
@@ -340,6 +341,29 @@ export default function App() {
     }));
   }
 
+  function isDueSoon(entry) {
+  if (!entry.due_day || entry.paid) return false;
+
+  const today = new Date();
+  const currentMonth = months[today.getMonth()];
+  const currentYear = today.getFullYear();
+
+  if (month !== currentMonth || Number(year) !== currentYear) return false;
+
+  const daysUntilDue = Number(entry.due_day) - today.getDate();
+  return daysUntilDue >= 0 && daysUntilDue <= 7;
+}
+
+function filterEntriesForView(sectionEntries) {
+  if (entryFilter === "paid") return sectionEntries.filter((e) => e.paid);
+  if (entryFilter === "unpaid") return sectionEntries.filter((e) => !e.paid);
+  if (entryFilter === "due_soon") {
+    return sectionEntries.filter((e) => isDueSoon(e));
+  }
+
+  return sectionEntries;
+}
+
   const totals = useMemo(() => {
     const total = (section) =>
       entries
@@ -490,6 +514,19 @@ export default function App() {
         </div>
       </div>
 
+      <div className="quick-filters">
+  {["all", "unpaid", "paid", "due_soon"].map((filter) => (
+    <button
+      key={filter}
+      type="button"
+      className={entryFilter === filter ? "active-filter" : ""}
+      onClick={() => setEntryFilter(filter)}
+    >
+      {filter === "due_soon" ? "Due soon" : filter}
+    </button>
+  ))}
+</div>
+
       <form onSubmit={addEntry} className="entry-form">
         <select
           value={form.section}
@@ -545,6 +582,12 @@ const sectionPaid = sectionEntries
 
 const sectionOutstanding = sectionTotal - sectionPaid;
 
+const sectionPaidPercent = sectionTotal
+  ? Math.round((sectionPaid / sectionTotal) * 100)
+  : 0;
+
+const visibleSectionEntries = filterEntriesForView(sectionEntries);
+
           return (
             <div key={section} className="section-block">
               <button
@@ -556,7 +599,7 @@ const sectionOutstanding = sectionTotal - sectionPaid;
                   {openSections[section] ? "▼" : "▶"}{" "}
                   {section.replaceAll("_", " ").toUpperCase()}
                 </span>
-                {section === "regular_payment" ? (
+                {section === "regular_payment" || section === "household_bill" ? (
   <span className="section-breakdown">
     <span>Paid: {money(sectionPaid)}</span>
     <span>Outstanding: {money(sectionOutstanding)}</span>
@@ -566,6 +609,23 @@ const sectionOutstanding = sectionTotal - sectionPaid;
   <span className="section-total">{money(sectionTotal)}</span>
 )}
               </button>
+
+              {(section === "regular_payment" || section === "household_bill") && (
+  <div className="paid-progress-wrap">
+    <div className="paid-progress-label">
+      <span>{sectionPaidPercent}% paid</span>
+      <span>
+        {money(sectionPaid)} of {money(sectionTotal)}
+      </span>
+    </div>
+    <div className="paid-progress-bar">
+      <div
+        className="paid-progress-fill"
+        style={{ width: `${sectionPaidPercent}%` }}
+      />
+    </div>
+  </div>
+)}
 
               {openSections[section] && (
                 <table>
@@ -582,8 +642,7 @@ const sectionOutstanding = sectionTotal - sectionPaid;
                   </thead>
 
                   <tbody>
-                    {entries
-                      .filter((e) => e.section === section)
+                    {visibleSectionEntries
                       .sort((a, b) => {
                         const aPaid = a.paid ? 1 : 0;
                         const bPaid = b.paid ? 1 : 0;

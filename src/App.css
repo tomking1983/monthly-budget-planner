@@ -682,3 +682,51 @@ td input[type="checkbox"]:checked {
     padding: 0;
   }
 }
+
+.quick-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+
+.quick-filters button {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.quick-filters button:hover,
+.quick-filters .active-filter {
+  background: var(--navy);
+  color: #ffffff;
+}
+
+.paid-progress-wrap {
+  margin: 12px 0 4px;
+}
+
+.paid-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.paid-progress-bar {
+  height: 10px;
+  background: #e8eef5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.paid-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #e8c85d);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
