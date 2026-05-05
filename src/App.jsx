@@ -553,6 +553,14 @@ export default function App() {
                   <tbody>
                     {entries
                       .filter((e) => e.section === section)
+                      .sort((a, b) => {
+                        const aPaid = a.paid ? 1 : 0;
+                        const bPaid = b.paid ? 1 : 0;
+
+                        if (aPaid !== bPaid) return aPaid - bPaid;
+
+                        return (a.due_day || 0) - (b.due_day || 0);
+                      })
                       .map((e) => (
                         <tr key={e.id} className={e.paid ? "paid-row" : ""}>
                           <td>
