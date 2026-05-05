@@ -241,8 +241,22 @@ export default function App() {
       .limit(1);
 
     if (existing && existing.length > 0) {
-      alert("Target month already has data. Clear it first if needed.");
-      return;
+      const confirmOverwrite = confirm(
+        `${targetMonth} ${targetYear} already has data. Do you want to overwrite it?`,
+      );
+
+      if (!confirmOverwrite) return;
+
+      const { error: deleteError } = await supabase
+        .from("budget_entries")
+        .delete()
+        .eq("month", targetMonth)
+        .eq("year", Number(targetYear));
+
+      if (deleteError) {
+        alert(deleteError.message);
+        return;
+      }
     }
 
     const rows = entries.map((entry) => ({
