@@ -515,46 +515,6 @@ function filterEntriesForView(sectionEntries) {
       </div>
 
 
-      <form onSubmit={addEntry} className="entry-form">
-        <select
-          value={form.section}
-          onChange={(e) => setForm({ ...form, section: e.target.value })}
-        >
-          <option value="income">Income</option>
-          <option value="carried_over">Carried over</option>
-          <option value="household_bill">Household bill</option>
-          <option value="regular_payment">TK Bill</option>
-        </select>
-
-        <input
-          placeholder="Name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-
-        <input
-          placeholder="Amount"
-          type="number"
-          step="0.01"
-          value={form.amount}
-          onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          required
-        />
-
-        <input
-          placeholder="Due day"
-          type="number"
-          value={form.due_day}
-          onChange={(e) => setForm({ ...form, due_day: e.target.value })}
-        />
-
-        <button>Add Entry</button>
-        <button type="button" onClick={() => window.print()}>
-          Print / PDF
-        </button>
-      </form>
-
       {["income", "carried_over", "household_bill", "regular_payment"].map(
         (section) => {
           const sectionEntries = entries.filter((e) => e.section === section);
@@ -579,18 +539,63 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
           return (
             <div key={section}>
               {section === "household_bill" && (
-                <div className="quick-filters">
-                  {["all", "unpaid", "paid", "due_soon"].map((filter) => (
-                    <button
-                      key={filter}
-                      type="button"
-                      className={entryFilter === filter ? "active-filter" : ""}
-                      onClick={() => setEntryFilter(filter)}
-                    >
-                      {filter === "due_soon" ? "Due soon" : filter}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div className="add-bill-panel">
+                    <h3>Add Bill</h3>
+                    <form onSubmit={addEntry} className="entry-form">
+                      <select
+                        value={form.section}
+                        onChange={(e) => setForm({ ...form, section: e.target.value })}
+                      >
+                        <option value="income">Income</option>
+                        <option value="carried_over">Carried over</option>
+                        <option value="household_bill">Household bill</option>
+                        <option value="regular_payment">TK Bill</option>
+                      </select>
+
+                      <input
+                        placeholder="Name"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        required
+                      />
+
+                      <input
+                        placeholder="Amount"
+                        type="number"
+                        step="0.01"
+                        value={form.amount}
+                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                        required
+                      />
+
+                      <input
+                        placeholder="Due day"
+                        type="number"
+                        value={form.due_day}
+                        onChange={(e) => setForm({ ...form, due_day: e.target.value })}
+                      />
+
+                      <button>Add Entry</button>
+                      <button type="button" onClick={() => window.print()}>
+                        Print / PDF
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="quick-filters">
+                    {["all", "unpaid", "paid", "due_soon"].map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        className={entryFilter === filter ? "active-filter" : ""}
+                        onClick={() => setEntryFilter(filter)}
+                      >
+                        {filter === "due_soon" ? "Due soon" : filter}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
 
               <div className="section-block">

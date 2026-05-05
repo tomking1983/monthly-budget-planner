@@ -516,6 +516,28 @@ td input[type="checkbox"]:checked {
     border-radius: 14px;
   }
 
+  .add-bill-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  margin: 8px 0 12px;
+  box-shadow: 0 8px 20px rgba(16, 32, 51, 0.06);
+}
+
+.add-bill-panel h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.add-bill-panel .entry-form {
+  margin: 0;
+  box-shadow: none;
+  border: 0;
+  padding: 0;
+}
+
   .month-row {
     grid-template-columns: 1fr;
   }
