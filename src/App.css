@@ -69,6 +69,17 @@ select {
   outline: none;
 }
 
+/* soften number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  filter: grayscale(1) brightness(1.4);
+  opacity: 0.5;
+}
+
+input[type="number"] {
+  appearance: textfield;
+}
+
 input::placeholder {
   color: #9aa7b8;
 }
@@ -442,7 +453,13 @@ td input {
 td input[type="checkbox"] {
   width: 22px;
   height: 22px;
-  accent-color: var(--gold);
+  accent-color: #94a3b8;
+  background: #ffffff;
+  border: 1px solid var(--border);
+}
+
+td input[type="checkbox"]:checked {
+  accent-color: var(--navy);
 }
 
 @media (max-width: 760px) {
