@@ -514,18 +514,6 @@ function filterEntriesForView(sectionEntries) {
         </div>
       </div>
 
-      <div className="quick-filters">
-  {["all", "unpaid", "paid", "due_soon"].map((filter) => (
-    <button
-      key={filter}
-      type="button"
-      className={entryFilter === filter ? "active-filter" : ""}
-      onClick={() => setEntryFilter(filter)}
-    >
-      {filter === "due_soon" ? "Due soon" : filter}
-    </button>
-  ))}
-</div>
 
       <form onSubmit={addEntry} className="entry-form">
         <select
@@ -589,7 +577,23 @@ const sectionPaidPercent = sectionTotal
 const visibleSectionEntries = filterEntriesForView(sectionEntries);
 
           return (
-            <div key={section} className="section-block">
+            <div key={section}>
+              {section === "household_bill" && (
+                <div className="quick-filters">
+                  {["all", "unpaid", "paid", "due_soon"].map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      className={entryFilter === filter ? "active-filter" : ""}
+                      onClick={() => setEntryFilter(filter)}
+                    >
+                      {filter === "due_soon" ? "Due soon" : filter}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="section-block">
               <button
                 type="button"
                 className="section-header"
@@ -748,6 +752,7 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                   </tbody>
                 </table>
               )}
+              </div>
             </div>
           );
         },
