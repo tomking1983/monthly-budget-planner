@@ -266,7 +266,7 @@ select:focus {
   font-weight: 600;
 }
 
-.viewing-title span {
+.summary-grid .viewing-title span {
   color: var(--gold);
   display: inline;
   font-size: inherit;
