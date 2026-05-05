@@ -518,9 +518,18 @@ export default function App() {
 
       {["income", "carried_over", "household_bill", "regular_payment"].map(
         (section) => {
-          const sectionTotal = entries
-            .filter((e) => e.section === section)
-            .reduce((sum, e) => sum + Number(e.amount), 0);
+          const sectionEntries = entries.filter((e) => e.section === section);
+
+const sectionTotal = sectionEntries.reduce(
+  (sum, e) => sum + Number(e.amount || 0),
+  0,
+);
+
+const sectionPaid = sectionEntries
+  .filter((e) => e.paid)
+  .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+const sectionOutstanding = sectionTotal - sectionPaid;
 
           return (
             <div key={section} className="section-block">
@@ -533,7 +542,15 @@ export default function App() {
                   {openSections[section] ? "▼" : "▶"}{" "}
                   {section.replaceAll("_", " ").toUpperCase()}
                 </span>
-                <span className="section-total">{money(sectionTotal)}</span>
+                {section === "regular_payment" ? (
+  <span className="section-breakdown">
+    <span>Paid: {money(sectionPaid)}</span>
+    <span>Outstanding: {money(sectionOutstanding)}</span>
+    <strong>Total: {money(sectionTotal)}</strong>
+  </span>
+) : (
+  <span className="section-total">{money(sectionTotal)}</span>
+)}
               </button>
 
               {openSections[section] && (
