@@ -541,7 +541,7 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
               {section === "household_bill" && (
                 <>
                   <div className="add-bill-panel">
-                    <h3>Add Bill</h3>
+                    <h3>Add Bill / Income</h3>
                     <form onSubmit={addEntry} className="entry-form">
                       <select
                         value={form.section}
