@@ -481,13 +481,14 @@ function filterEntriesForView(sectionEntries) {
         </div>
       </div>
 
+      
+      <div className="summary-grid">
       <h2 className="viewing-title">
         Now Viewing:{" "}
         <span>
           {month} {year}
         </span>
       </h2>
-      <div className="summary-grid">
         <div>
           <span>Income</span>
           <strong>{money(totals.income)}</strong>
