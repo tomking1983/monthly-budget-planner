@@ -105,10 +105,16 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [month, setMonth] = useState("May");
-  const [year, setYear] = useState(2026);
-  const [targetMonth, setTargetMonth] = useState("June");
-  const [targetYear, setTargetYear] = useState(2026);
+  const currentDate = new Date();
+  const currentMonth = months[currentDate.getMonth()];
+  const currentYear = currentDate.getFullYear();
+
+  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(currentYear);
+  const [targetMonth, setTargetMonth] = useState(months[(currentDate.getMonth() + 1) % 12]);
+  const [targetYear, setTargetYear] = useState(
+    currentDate.getMonth() === 11 ? currentYear + 1 : currentYear,
+  );
   const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
   const [entries, setEntries] = useState([]);
   const [entryFilter, setEntryFilter] = useState("all");
