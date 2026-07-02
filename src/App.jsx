@@ -15,6 +15,18 @@ const months = [
   "November",
   "December",
 ];
+
+const categories = [
+  { value: "house", label: "House", icon: "🏠" },
+  { value: "food", label: "Food", icon: "🍔" },
+  { value: "pets", label: "Pets", icon: "🐶" },
+  { value: "car", label: "Car", icon: "🚗" },
+  { value: "subscriptions", label: "Mobile/Broadband/TV", icon: "📱" },
+  { value: "streaming", label: "Subscriptions", icon: "🎬" },
+  { value: "finance", label: "Utilities", icon: "⚡" },
+  { value: "Kids", label: "Kids", icon: "👨‍👩‍👧" },
+  { value: "other", label: "Other", icon: "📌" },
+];
 const templateEntries = [
   { section: "income", name: "Wage", amount: 2101.51 },
   { section: "carried_over", name: "Money Carried Over", amount: 84 },
@@ -111,13 +123,16 @@ export default function App() {
 
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear);
-  const [targetMonth, setTargetMonth] = useState(months[(currentDate.getMonth() + 1) % 12]);
+  const [targetMonth, setTargetMonth] = useState(
+    months[(currentDate.getMonth() + 1) % 12],
+  );
   const [targetYear, setTargetYear] = useState(
     currentDate.getMonth() === 11 ? currentYear + 1 : currentYear,
   );
   const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
   const [entries, setEntries] = useState([]);
   const [entryFilter, setEntryFilter] = useState("all");
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const [openSections, setOpenSections] = useState({
     income: false,
@@ -131,6 +146,7 @@ export default function App() {
     name: "",
     amount: "",
     due_day: "",
+    category: "other",
   });
 
   useEffect(() => {
@@ -276,6 +292,7 @@ export default function App() {
       due_day: entry.due_day,
       week_number: entry.week_number,
       notes: entry.notes,
+      category: entry.category || "other",
       paid: false,
     }));
 
@@ -296,6 +313,7 @@ export default function App() {
       name: form.name,
       amount: Number(form.amount || 0),
       due_day: form.due_day ? Number(form.due_day) : null,
+      category: form.category,
     });
 
     if (error) return alert(error.message);
@@ -305,6 +323,7 @@ export default function App() {
       name: "",
       amount: "",
       due_day: "",
+      category: "other",
     });
 
     loadEntries();
@@ -333,6 +352,7 @@ export default function App() {
       name: `${entry.name} copy`,
       amount: entry.amount,
       due_day: entry.due_day,
+      category: entry.category || "other",
       paid: false,
     });
 
@@ -348,27 +368,27 @@ export default function App() {
   }
 
   function isDueSoon(entry) {
-  if (!entry.due_day || entry.paid) return false;
+    if (!entry.due_day || entry.paid) return false;
 
-  const today = new Date();
-  const currentMonth = months[today.getMonth()];
-  const currentYear = today.getFullYear();
+    const today = new Date();
+    const currentMonth = months[today.getMonth()];
+    const currentYear = today.getFullYear();
 
-  if (month !== currentMonth || Number(year) !== currentYear) return false;
+    if (month !== currentMonth || Number(year) !== currentYear) return false;
 
-  const daysUntilDue = Number(entry.due_day) - today.getDate();
-  return daysUntilDue >= 0 && daysUntilDue <= 7;
-}
-
-function filterEntriesForView(sectionEntries) {
-  if (entryFilter === "paid") return sectionEntries.filter((e) => e.paid);
-  if (entryFilter === "unpaid") return sectionEntries.filter((e) => !e.paid);
-  if (entryFilter === "due_soon") {
-    return sectionEntries.filter((e) => isDueSoon(e));
+    const daysUntilDue = Number(entry.due_day) - today.getDate();
+    return daysUntilDue >= 0 && daysUntilDue <= 7;
   }
 
-  return sectionEntries;
-}
+  function filterEntriesForView(sectionEntries) {
+    if (entryFilter === "paid") return sectionEntries.filter((e) => e.paid);
+    if (entryFilter === "unpaid") return sectionEntries.filter((e) => !e.paid);
+    if (entryFilter === "due_soon") {
+      return sectionEntries.filter((e) => isDueSoon(e));
+    }
+
+    return sectionEntries;
+  }
 
   const totals = useMemo(() => {
     const total = (section) =>
@@ -393,7 +413,8 @@ function filterEntriesForView(sectionEntries) {
   const chartData = useMemo(() => {
     const billEntries = entries.filter(
       (entry) =>
-        entry.section === "household_bill" || entry.section === "regular_payment",
+        entry.section === "household_bill" ||
+        entry.section === "regular_payment",
     );
 
     const totalBills = billEntries.reduce(
@@ -405,7 +426,9 @@ function filterEntriesForView(sectionEntries) {
       .filter((entry) => entry.paid)
       .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
 
-    const paidShare = totalBills ? Math.round((paidBills / totalBills) * 100) : 0;
+    const paidShare = totalBills
+      ? Math.round((paidBills / totalBills) * 100)
+      : 0;
     const outstandingShare = Math.max(100 - paidShare, 0);
     const householdShare = totalBills
       ? Math.round((totals.household / totalBills) * 100)
@@ -522,7 +545,6 @@ function filterEntriesForView(sectionEntries) {
               <strong>
                 <span>Reset amounts to £0</span>
               </strong>
-              
             </label>
 
             <button onClick={duplicateMonth}>Duplicate</button>
@@ -530,14 +552,13 @@ function filterEntriesForView(sectionEntries) {
         </div>
       </div>
 
-      
       <div className="summary-grid">
-      <h2 className="viewing-title">
-        Now Viewing:{" "}
-        <span>
-          {month} {year}
-        </span>
-      </h2>
+        <h2 className="viewing-title">
+          Now Viewing:{" "}
+          <span>
+            {month} {year}
+          </span>
+        </h2>
         <div>
           <span>Income</span>
           <strong>{money(totals.income)}</strong>
@@ -633,27 +654,26 @@ function filterEntriesForView(sectionEntries) {
         </div>
       </div>
 
-
       {["income", "carried_over", "household_bill", "regular_payment"].map(
         (section) => {
           const sectionEntries = entries.filter((e) => e.section === section);
 
-const sectionTotal = sectionEntries.reduce(
-  (sum, e) => sum + Number(e.amount || 0),
-  0,
-);
+          const sectionTotal = sectionEntries.reduce(
+            (sum, e) => sum + Number(e.amount || 0),
+            0,
+          );
 
-const sectionPaid = sectionEntries
-  .filter((e) => e.paid)
-  .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+          const sectionPaid = sectionEntries
+            .filter((e) => e.paid)
+            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-const sectionOutstanding = sectionTotal - sectionPaid;
+          const sectionOutstanding = sectionTotal - sectionPaid;
 
-const sectionPaidPercent = sectionTotal
-  ? Math.round((sectionPaid / sectionTotal) * 100)
-  : 0;
+          const sectionPaidPercent = sectionTotal
+            ? Math.round((sectionPaid / sectionTotal) * 100)
+            : 0;
 
-const visibleSectionEntries = filterEntriesForView(sectionEntries);
+          const visibleSectionEntries = filterEntriesForView(sectionEntries);
 
           return (
             <div key={section}>
@@ -664,7 +684,9 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                     <form onSubmit={addEntry} className="entry-form">
                       <select
                         value={form.section}
-                        onChange={(e) => setForm({ ...form, section: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, section: e.target.value })
+                        }
                       >
                         <option value="income">Income</option>
                         <option value="carried_over">Carried over</option>
@@ -675,7 +697,9 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                       <input
                         placeholder="Name"
                         value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, name: e.target.value })
+                        }
                         required
                       />
 
@@ -684,7 +708,9 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                         type="number"
                         step="0.01"
                         value={form.amount}
-                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, amount: e.target.value })
+                        }
                         required
                       />
 
@@ -692,8 +718,24 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                         placeholder="Due day"
                         type="number"
                         value={form.due_day}
-                        onChange={(e) => setForm({ ...form, due_day: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, due_day: e.target.value })
+                        }
                       />
+
+                      <select
+                        className="category-select"
+                        value={form.category}
+                        onChange={(e) =>
+                          setForm({ ...form, category: e.target.value })
+                        }
+                      >
+                        {categories.map((category) => (
+                          <option key={category.value} value={category.value}>
+                            {category.icon} {category.label}
+                          </option>
+                        ))}
+                      </select>
 
                       <button>Add Entry</button>
                       <button type="button" onClick={() => window.print()}>
@@ -707,7 +749,9 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
                       <button
                         key={filter}
                         type="button"
-                        className={entryFilter === filter ? "active-filter" : ""}
+                        className={
+                          entryFilter === filter ? "active-filter" : ""
+                        }
                         onClick={() => setEntryFilter(filter)}
                       >
                         {filter === "due_soon" ? "Due soon" : filter}
@@ -718,164 +762,216 @@ const visibleSectionEntries = filterEntriesForView(sectionEntries);
               )}
 
               <div className="section-block">
-              <button
-                type="button"
-                className="section-header"
-                onClick={() => toggleSection(section)}
-              >
-                <span>
-                  {openSections[section] ? "▼" : "▶"}{" "}
-                  {section.replaceAll("_", " ").toUpperCase()}
-                </span>
-                {section === "regular_payment" || section === "household_bill" ? (
-  <span className="section-breakdown">
-    <span>Paid: {money(sectionPaid)}</span>
-    <span>Outstanding: {money(sectionOutstanding)}</span>
-    <strong>Total: {money(sectionTotal)}</strong>
-  </span>
-) : (
-  <span className="section-total">{money(sectionTotal)}</span>
-)}
-              </button>
+                <button
+                  type="button"
+                  className="section-header"
+                  onClick={() => toggleSection(section)}
+                >
+                  <span>
+                    {openSections[section] ? "▼" : "▶"}{" "}
+                    {section.replaceAll("_", " ").toUpperCase()}
+                  </span>
+                  {section === "regular_payment" ||
+                  section === "household_bill" ? (
+                    <span className="section-breakdown">
+                      <span>Paid: {money(sectionPaid)}</span>
+                      <span>Outstanding: {money(sectionOutstanding)}</span>
+                      <strong>Total: {money(sectionTotal)}</strong>
+                    </span>
+                  ) : (
+                    <span className="section-total">{money(sectionTotal)}</span>
+                  )}
+                </button>
 
-              {(section === "regular_payment" || section === "household_bill") && (
-  <div className="paid-progress-wrap">
-    <div className="paid-progress-label">
-      <span>{sectionPaidPercent}% paid</span>
-      <span>
-        {money(sectionPaid)} of {money(sectionTotal)}
-      </span>
-    </div>
-    <div className="paid-progress-bar">
-      <div
-        className="paid-progress-fill"
-        style={{ width: `${sectionPaidPercent}%` }}
-      />
-    </div>
-  </div>
-)}
+                {(section === "regular_payment" ||
+                  section === "household_bill") && (
+                  <div className="paid-progress-wrap">
+                    <div className="paid-progress-label">
+                      <span>{sectionPaidPercent}% paid</span>
+                      <span>
+                        {money(sectionPaid)} of {money(sectionTotal)}
+                      </span>
+                    </div>
+                    <div className="paid-progress-bar">
+                      <div
+                        className="paid-progress-fill"
+                        style={{ width: `${sectionPaidPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              {openSections[section] && (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Amount</th>
-                      {section === "household_bill" && <th>Due</th>}
-                      {section !== "income" && section !== "carried_over" && (
-                        <th>Paid</th>
-                      )}
-                      <th></th>
-                    </tr>
-                  </thead>
+                {openSections[section] && (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Amount</th>
+                        {section === "household_bill" && <th>Due</th>}
+                        {section !== "income" && section !== "carried_over" && (
+                          <th>Category</th>
+                        )}
+                        {section !== "income" && section !== "carried_over" && (
+                          <th>Paid</th>
+                        )}
+                        <th></th>
+                      </tr>
+                    </thead>
 
-                  <tbody>
-                    {visibleSectionEntries
-                      .sort((a, b) => {
-                        const aPaid = a.paid ? 1 : 0;
-                        const bPaid = b.paid ? 1 : 0;
+                    <tbody>
+                      {visibleSectionEntries
+                        .sort((a, b) => {
+                          const aPaid = a.paid ? 1 : 0;
+                          const bPaid = b.paid ? 1 : 0;
 
-                        if (aPaid !== bPaid) return aPaid - bPaid;
+                          if (aPaid !== bPaid) return aPaid - bPaid;
 
-                        return (a.due_day || 0) - (b.due_day || 0);
-                      })
-                      .map((e) => (
-                        <tr key={e.id} className={e.paid ? "paid-row" : ""}>
-                          <td>
-                            <input
-                              value={e.name}
-                              onChange={(ev) => {
-                                const val = ev.target.value;
-                                setEntries((prev) =>
-                                  prev.map((x) =>
-                                    x.id === e.id ? { ...x, name: val } : x,
-                                  ),
-                                );
-                                updateEntry(e.id, "name", val);
-                              }}
-                            />
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              value={e.amount}
-                              onChange={(ev) => {
-                                const val = ev.target.value;
-                                setEntries((prev) =>
-                                  prev.map((x) =>
-                                    x.id === e.id ? { ...x, amount: val } : x,
-                                  ),
-                                );
-                                updateEntry(e.id, "amount", Number(val));
-                              }}
-                            />
-                          </td>
-
-                          {section === "household_bill" && (
+                          return (a.due_day || 0) - (b.due_day || 0);
+                        })
+                        .map((e) => (
+                          <tr key={e.id} className={e.paid ? "paid-row" : ""}>
                             <td>
                               <input
-                                type="number"
-                                value={e.due_day || ""}
+                                value={e.name}
                                 onChange={(ev) => {
                                   const val = ev.target.value;
                                   setEntries((prev) =>
                                     prev.map((x) =>
-                                      x.id === e.id
-                                        ? { ...x, due_day: val }
-                                        : x,
+                                      x.id === e.id ? { ...x, name: val } : x,
                                     ),
                                   );
-                                  updateEntry(
-                                    e.id,
-                                    "due_day",
-                                    val ? Number(val) : null,
-                                  );
+                                  updateEntry(e.id, "name", val);
                                 }}
                               />
                             </td>
-                          )}
 
-                          {section !== "income" &&
-                            section !== "carried_over" && (
+                            <td>
+                              <input
+                                type="number"
+                                value={e.amount}
+                                onChange={(ev) => {
+                                  const val = ev.target.value;
+                                  setEntries((prev) =>
+                                    prev.map((x) =>
+                                      x.id === e.id ? { ...x, amount: val } : x,
+                                    ),
+                                  );
+                                  updateEntry(e.id, "amount", Number(val));
+                                }}
+                              />
+                            </td>
+
+                            {section === "household_bill" && (
                               <td>
                                 <input
-                                  type="checkbox"
-                                  checked={!!e.paid}
+                                  type="number"
+                                  value={e.due_day || ""}
                                   onChange={(ev) => {
-                                    const checked = ev.target.checked;
+                                    const val = ev.target.value;
                                     setEntries((prev) =>
                                       prev.map((x) =>
                                         x.id === e.id
-                                          ? { ...x, paid: checked }
+                                          ? { ...x, due_day: val }
                                           : x,
                                       ),
                                     );
-                                    updateEntry(e.id, "paid", checked);
+                                    updateEntry(
+                                      e.id,
+                                      "due_day",
+                                      val ? Number(val) : null,
+                                    );
                                   }}
                                 />
                               </td>
                             )}
 
-                          <td className="row-actions">
-                            <button
-                              title="Duplicate"
-                              onClick={() => duplicateEntry(e)}
-                            >
-                              ⧉
-                            </button>
-                            <button
-                              title="Delete"
-                              onClick={() => deleteEntry(e.id)}
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              )}
+                            {section !== "income" &&
+                              section !== "carried_over" && (
+                                <td>
+                                  {editingCategoryId === e.id ? (
+                                    <select
+                                      className="category-select"
+                                      value={e.category || "other"}
+                                      autoFocus
+                                      onBlur={() => setEditingCategoryId(null)}
+                                      onChange={(ev) => {
+                                        const val = ev.target.value;
+                                        setEntries((prev) =>
+                                          prev.map((x) =>
+                                            x.id === e.id
+                                              ? { ...x, category: val }
+                                              : x,
+                                          ),
+                                        );
+                                        updateEntry(e.id, "category", val);
+                                        setEditingCategoryId(null);
+                                      }}
+                                    >
+                                      {categories.map((category) => (
+                                        <option
+                                          key={category.value}
+                                          value={category.value}
+                                        >
+                                          {category.icon} {category.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={`category-badge category-${e.category || "other"}`}
+                                      onClick={() => setEditingCategoryId(e.id)}
+                                    >
+                                      {categories.find(
+                                        (category) =>
+                                          category.value ===
+                                          (e.category || "other"),
+                                      )?.icon || "📌"}
+                                    </button>
+                                  )}
+                                </td>
+                              )}
+
+                            {section !== "income" &&
+                              section !== "carried_over" && (
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!e.paid}
+                                    onChange={(ev) => {
+                                      const checked = ev.target.checked;
+                                      setEntries((prev) =>
+                                        prev.map((x) =>
+                                          x.id === e.id
+                                            ? { ...x, paid: checked }
+                                            : x,
+                                        ),
+                                      );
+                                      updateEntry(e.id, "paid", checked);
+                                    }}
+                                  />
+                                </td>
+                              )}
+
+                            <td className="row-actions">
+                              <button
+                                title="Duplicate"
+                                onClick={() => duplicateEntry(e)}
+                              >
+                                ⧉
+                              </button>
+                              <button
+                                title="Delete"
+                                onClick={() => deleteEntry(e.id)}
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           );
