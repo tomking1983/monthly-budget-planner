@@ -460,7 +460,7 @@ export default function App() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1>Monthly Budget Planner</h1>
+          <h1>💰Monthly Budget Planner💰</h1>
           <input
             placeholder="Email"
             onChange={(e) => setEmail(e.target.value)}
@@ -480,7 +480,7 @@ export default function App() {
   return (
     <div className="app">
       <div className="topbar">
-        <h1>Monthly Budget Planner</h1>
+        <h1>💰Monthly Budget Planner💰</h1>
         <button onClick={signOut}>Logout</button>
       </div>
 
