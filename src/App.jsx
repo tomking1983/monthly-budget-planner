@@ -24,7 +24,7 @@ const categories = [
   { value: "subscriptions", label: "Mobile/Broadband/TV", icon: "📱" },
   { value: "streaming", label: "Subscriptions", icon: "🎬" },
   { value: "finance", label: "Utilities", icon: "⚡" },
-  { value: "Kids", label: "Kids", icon: "👨‍👩‍👧" },
+  { value: "Kids", label: "Kids", icon: "👨" },
   { value: "other", label: "Other", icon: "📌" },
 ];
 const templateEntries = [
