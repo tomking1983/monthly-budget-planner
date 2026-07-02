@@ -390,6 +390,49 @@ function filterEntriesForView(sectionEntries) {
     };
   }, [entries]);
 
+  const chartData = useMemo(() => {
+    const billEntries = entries.filter(
+      (entry) =>
+        entry.section === "household_bill" || entry.section === "regular_payment",
+    );
+
+    const totalBills = billEntries.reduce(
+      (sum, entry) => sum + Number(entry.amount || 0),
+      0,
+    );
+
+    const paidBills = billEntries
+      .filter((entry) => entry.paid)
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+
+    const paidShare = totalBills ? Math.round((paidBills / totalBills) * 100) : 0;
+    const outstandingShare = Math.max(100 - paidShare, 0);
+    const householdShare = totalBills
+      ? Math.round((totals.household / totalBills) * 100)
+      : 0;
+    const regularShare = totalBills
+      ? Math.round((totals.regular / totalBills) * 100)
+      : 0;
+
+    const topBills = [...billEntries]
+      .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+      .slice(0, 5);
+
+    const highestBill = topBills[0] ? Number(topBills[0].amount || 0) : 0;
+
+    return {
+      totalBills,
+      paidBills,
+      outstandingBills: totalBills - paidBills,
+      paidShare,
+      outstandingShare,
+      householdShare,
+      regularShare,
+      topBills,
+      highestBill,
+    };
+  }, [entries, totals]);
+
   if (!session) {
     return (
       <div className="auth-page">
@@ -518,6 +561,75 @@ function filterEntriesForView(sectionEntries) {
         <div className="important-total">
           <span>Weekly Left</span>
           <strong>{money(totals.weekly)}</strong>
+        </div>
+      </div>
+
+      <div className="charts-grid">
+        <div className="chart-card">
+          <div className="chart-heading">
+            <span>Paid vs Outstanding</span>
+            <strong>{chartData.paidShare}% paid</strong>
+          </div>
+          <div className="stacked-chart">
+            <div
+              className="stacked-paid"
+              style={{ width: `${chartData.paidShare}%` }}
+            />
+            <div
+              className="stacked-outstanding"
+              style={{ width: `${chartData.outstandingShare}%` }}
+            />
+          </div>
+          <div className="chart-legend">
+            <span>Paid: {money(chartData.paidBills)}</span>
+            <span>Outstanding: {money(chartData.outstandingBills)}</span>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <div className="chart-heading">
+            <span>Bill Split</span>
+            <strong>{money(chartData.totalBills)}</strong>
+          </div>
+          <div className="stacked-chart">
+            <div
+              className="stacked-household"
+              style={{ width: `${chartData.householdShare}%` }}
+            />
+            <div
+              className="stacked-regular"
+              style={{ width: `${chartData.regularShare}%` }}
+            />
+          </div>
+          <div className="chart-legend">
+            <span>Household: {chartData.householdShare}%</span>
+            <span>TK Bills: {chartData.regularShare}%</span>
+          </div>
+        </div>
+
+        <div className="chart-card wide-chart">
+          <div className="chart-heading">
+            <span>Top Bills</span>
+            <strong>Top {chartData.topBills.length}</strong>
+          </div>
+          <div className="bar-chart">
+            {chartData.topBills.map((entry) => (
+              <div className="bar-row" key={entry.id}>
+                <span>{entry.name}</span>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill"
+                    style={{
+                      width: chartData.highestBill
+                        ? `${(Number(entry.amount || 0) / chartData.highestBill) * 100}%`
+                        : "0%",
+                    }}
+                  />
+                </div>
+                <strong>{money(entry.amount)}</strong>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

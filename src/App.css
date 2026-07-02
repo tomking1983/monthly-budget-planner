@@ -784,3 +784,128 @@ td input[type="checkbox"]:checked {
   border-radius: 999px;
   transition: width 0.25s ease;
 }
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(16, 32, 51, 0.06);
+}
+
+.wide-chart {
+  grid-column: 1 / -1;
+}
+
+.chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.chart-heading span {
+  color: var(--text);
+  font-weight: 900;
+}
+
+.chart-heading strong {
+  color: var(--gold);
+  font-size: 14px;
+}
+
+.stacked-chart {
+  display: flex;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef5;
+}
+
+.stacked-paid,
+.stacked-outstanding,
+.stacked-household,
+.stacked-regular,
+.bar-fill {
+  min-height: 100%;
+  transition: width 0.25s ease;
+}
+
+.stacked-paid {
+  background: #16a34a;
+}
+
+.stacked-outstanding {
+  background: #f97316;
+}
+
+.stacked-household {
+  background: var(--navy);
+}
+
+.stacked-regular {
+  background: var(--gold);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bar-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 3fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.bar-row span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.bar-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.bar-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef5;
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, var(--navy), var(--gold));
+}
+
+@media (max-width: 780px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row {
+    grid-template-columns: 1fr;
+  }
+}
