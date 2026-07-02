@@ -134,6 +134,11 @@ export default function App() {
   const [entryFilter, setEntryFilter] = useState("all");
   const [editingCategoryId, setEditingCategoryId] = useState(null);
 
+  const [sortConfig, setSortConfig] = useState({
+    household_bill: { key: "due_day", direction: "asc" },
+    regular_payment: { key: "name", direction: "asc" },
+  });
+
   const [openSections, setOpenSections] = useState({
     income: false,
     carried_over: false,
@@ -388,6 +393,65 @@ export default function App() {
     }
 
     return sectionEntries;
+  }
+
+  function updateSort(section, key) {
+    setSortConfig((prev) => {
+      const current = prev[section] || { key, direction: "asc" };
+      const direction =
+        current.key === key && current.direction === "asc" ? "desc" : "asc";
+
+      return {
+        ...prev,
+        [section]: { key, direction },
+      };
+    });
+  }
+
+  function sortIndicator(section, key) {
+    const current = sortConfig[section];
+    if (!current || current.key !== key) return "↕";
+    return current.direction === "asc" ? "↑" : "↓";
+  }
+
+  function getCategoryLabel(value) {
+    return (
+      categories.find((category) => category.value === (value || "other"))
+        ?.label || "Other"
+    );
+  }
+
+  function sortEntriesForView(section, sectionEntries) {
+    const current = sortConfig[section];
+
+    return [...sectionEntries].sort((a, b) => {
+      const aPaid = a.paid ? 1 : 0;
+      const bPaid = b.paid ? 1 : 0;
+
+      if (aPaid !== bPaid) return aPaid - bPaid;
+
+      if (!current) return (a.due_day || 0) - (b.due_day || 0);
+
+      let aValue = a[current.key];
+      let bValue = b[current.key];
+
+      if (current.key === "category") {
+        aValue = getCategoryLabel(a.category);
+        bValue = getCategoryLabel(b.category);
+      }
+
+      if (current.key === "amount" || current.key === "due_day") {
+        aValue = Number(aValue || 0);
+        bValue = Number(bValue || 0);
+      } else {
+        aValue = String(aValue || "").toLowerCase();
+        bValue = String(bValue || "").toLowerCase();
+      }
+
+      if (aValue < bValue) return current.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return current.direction === "asc" ? 1 : -1;
+      return 0;
+    });
   }
 
   const totals = useMemo(() => {
@@ -673,7 +737,11 @@ export default function App() {
             ? Math.round((sectionPaid / sectionTotal) * 100)
             : 0;
 
-          const visibleSectionEntries = filterEntriesForView(sectionEntries);
+          const visibleSectionEntries = sortEntriesForView(
+            section,
+            filterEntriesForView(sectionEntries),
+          );
+
 
           return (
             <div key={section}>
@@ -805,11 +873,45 @@ export default function App() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        <th>Amount</th>
-                        {section === "household_bill" && <th>Due</th>}
+                        <th>
+                          <button
+                            type="button"
+                            className="sort-button"
+                            onClick={() => updateSort(section, "name")}
+                          >
+                            Name {sortIndicator(section, "name")}
+                          </button>
+                        </th>
+                        <th>
+                          <button
+                            type="button"
+                            className="sort-button"
+                            onClick={() => updateSort(section, "amount")}
+                          >
+                            Amount {sortIndicator(section, "amount")}
+                          </button>
+                        </th>
+                        {section === "household_bill" && (
+                          <th>
+                            <button
+                              type="button"
+                              className="sort-button"
+                              onClick={() => updateSort(section, "due_day")}
+                            >
+                              Due {sortIndicator(section, "due_day")}
+                            </button>
+                          </th>
+                        )}
                         {section !== "income" && section !== "carried_over" && (
-                          <th>Category</th>
+                          <th>
+                            <button
+                              type="button"
+                              className="sort-button"
+                              onClick={() => updateSort(section, "category")}
+                            >
+                              Category {sortIndicator(section, "category")}
+                            </button>
+                          </th>
                         )}
                         {section !== "income" && section !== "carried_over" && (
                           <th>Paid</th>
@@ -819,16 +921,7 @@ export default function App() {
                     </thead>
 
                     <tbody>
-                      {visibleSectionEntries
-                        .sort((a, b) => {
-                          const aPaid = a.paid ? 1 : 0;
-                          const bPaid = b.paid ? 1 : 0;
-
-                          if (aPaid !== bPaid) return aPaid - bPaid;
-
-                          return (a.due_day || 0) - (b.due_day || 0);
-                        })
-                        .map((e) => (
+                      {visibleSectionEntries.map((e) => (
                           <tr key={e.id} className={e.paid ? "paid-row" : ""}>
                             <td>
                               <input
