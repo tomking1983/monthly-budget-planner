@@ -131,8 +131,19 @@ export default function App() {
   );
   const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [weeklySpending, setWeeklySpending] = useState([]);
+  const [weeklyStatus, setWeeklyStatus] = useState([]);
+  const [weeklyForm, setWeeklyForm] = useState({
+    week_number: 1,
+    description: "",
+    amount: "",
+    category: "other",
+    spent_date: "",
+  });
   const [entryFilter, setEntryFilter] = useState("all");
   const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [openWeeklyCategories, setOpenWeeklyCategories] = useState({});
+  const [bankHolidays, setBankHolidays] = useState([]);
 
   const [sortConfig, setSortConfig] = useState({
     household_bill: { key: "due_day", direction: "asc" },
@@ -167,8 +178,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session?.user) loadEntries();
+    async function loadBankHolidays() {
+      try {
+        const response = await fetch("https://www.gov.uk/bank-holidays.json");
+        const data = await response.json();
+        const englandAndWalesDates =
+          data["england-and-wales"]?.events?.map((event) => event.date) || [];
+
+        setBankHolidays(englandAndWalesDates);
+      } catch (error) {
+        console.error("Could not load bank holidays", error);
+        setBankHolidays([]);
+      }
+    }
+
+    loadBankHolidays();
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      loadEntries();
+      loadWeeklySpending();
+      loadWeeklyStatus();
+    }
   }, [session, month, year]);
+  async function loadWeeklyStatus() {
+    const { data, error } = await supabase
+      .from("weekly_budget_status")
+      .select("*")
+      .eq("month", month)
+      .eq("year", year)
+      .order("week_number", { ascending: true });
+
+    if (error) return alert(error.message);
+    setWeeklyStatus(data || []);
+  }
 
   async function signIn() {
     const { error } = await supabase.auth.signInWithPassword({
@@ -198,6 +242,19 @@ export default function App() {
 
     if (error) return alert(error.message);
     setEntries(data || []);
+  }
+
+  async function loadWeeklySpending() {
+    const { data, error } = await supabase
+      .from("weekly_spending")
+      .select("*")
+      .eq("month", month)
+      .eq("year", year)
+      .order("week_number", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) return alert(error.message);
+    setWeeklySpending(data || []);
   }
 
   async function addTemplate() {
@@ -334,6 +391,77 @@ export default function App() {
     loadEntries();
   }
 
+  async function addWeeklySpend(e) {
+    e.preventDefault();
+
+    if (isWeekClosed(weeklyForm.week_number)) {
+      alert("This week is closed. Reopen it before adding more spending.");
+      return;
+    }
+
+    const { error } = await supabase.from("weekly_spending").insert({
+      user_id: session.user.id,
+      month,
+      year,
+      week_number: Number(weeklyForm.week_number),
+      description: weeklyForm.description,
+      amount: Number(weeklyForm.amount || 0),
+      category: weeklyForm.category,
+      spent_date: weeklyForm.spent_date || null,
+    });
+
+    if (error) return alert(error.message);
+
+    setWeeklyForm({
+      week_number: weeklyForm.week_number,
+      description: "",
+      amount: "",
+      category: "other",
+      spent_date: "",
+    });
+
+    loadWeeklySpending();
+  }
+
+  async function deleteWeeklySpend(id) {
+    await supabase.from("weekly_spending").delete().eq("id", id);
+    loadWeeklySpending();
+  }
+
+  function isWeekClosed(weekNumber) {
+    return weeklyStatus.some(
+      (status) =>
+        Number(status.week_number) === Number(weekNumber) && status.is_closed,
+    );
+  }
+
+  async function setWeekClosed(weekNumber, isClosed) {
+    const existingStatus = weeklyStatus.find(
+      (status) => Number(status.week_number) === Number(weekNumber),
+    );
+
+    if (existingStatus) {
+      const { error } = await supabase
+        .from("weekly_budget_status")
+        .update({ is_closed: isClosed })
+        .eq("id", existingStatus.id);
+
+      if (error) return alert(error.message);
+    } else {
+      const { error } = await supabase.from("weekly_budget_status").insert({
+        user_id: session.user.id,
+        month,
+        year,
+        week_number: Number(weekNumber),
+        is_closed: isClosed,
+      });
+
+      if (error) return alert(error.message);
+    }
+
+    loadWeeklyStatus();
+  }
+
   async function updateEntry(id, field, value) {
     const { error } = await supabase
       .from("budget_entries")
@@ -383,6 +511,45 @@ export default function App() {
 
     const daysUntilDue = Number(entry.due_day) - today.getDate();
     return daysUntilDue >= 0 && daysUntilDue <= 7;
+  }
+
+  function formatDateForBankHolidayCheck(date) {
+    const yearValue = date.getFullYear();
+    const monthValue = String(date.getMonth() + 1).padStart(2, "0");
+    const dayValue = String(date.getDate()).padStart(2, "0");
+
+    return `${yearValue}-${monthValue}-${dayValue}`;
+  }
+
+  function getPaydayForMonth(yearValue, monthIndex, bankHolidayDates = []) {
+    const payday = new Date(yearValue, monthIndex + 1, 0);
+
+    while (
+      payday.getDay() === 0 ||
+      payday.getDay() === 6 ||
+      bankHolidayDates.includes(formatDateForBankHolidayCheck(payday))
+    ) {
+      payday.setDate(payday.getDate() - 1);
+    }
+
+    return payday;
+  }
+
+  function getPreviousBudgetMonth(yearValue, monthIndex) {
+    if (monthIndex === 0) {
+      return { year: yearValue - 1, monthIndex: 11 };
+    }
+
+    return { year: yearValue, monthIndex: monthIndex - 1 };
+  }
+
+  function formatDateRange(startDate, endDate) {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+    });
+
+    return `${formatter.format(startDate)} - ${formatter.format(endDate)}`;
   }
 
   function filterEntriesForView(sectionEntries) {
@@ -475,50 +642,178 @@ export default function App() {
   }, [entries]);
 
   const chartData = useMemo(() => {
+    const calculateSectionProgress = (section) => {
+      const sectionEntries = entries.filter((entry) => entry.section === section);
+      const total = sectionEntries.reduce(
+        (sum, entry) => sum + Number(entry.amount || 0),
+        0,
+      );
+      const paid = sectionEntries
+        .filter((entry) => entry.paid)
+        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+      const paidShare = total ? Math.round((paid / total) * 100) : 0;
+
+      return {
+        total,
+        paid,
+        outstanding: total - paid,
+        paidShare,
+        outstandingShare: Math.max(100 - paidShare, 0),
+      };
+    };
+
+    const householdProgress = calculateSectionProgress("household_bill");
+    const regularProgress = calculateSectionProgress("regular_payment");
+
     const billEntries = entries.filter(
       (entry) =>
         entry.section === "household_bill" ||
         entry.section === "regular_payment",
     );
-
-    const totalBills = billEntries.reduce(
-      (sum, entry) => sum + Number(entry.amount || 0),
-      0,
-    );
-
-    const paidBills = billEntries
-      .filter((entry) => entry.paid)
-      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-
-    const paidShare = totalBills
-      ? Math.round((paidBills / totalBills) * 100)
-      : 0;
-    const outstandingShare = Math.max(100 - paidShare, 0);
-    const householdShare = totalBills
-      ? Math.round((totals.household / totalBills) * 100)
-      : 0;
-    const regularShare = totalBills
-      ? Math.round((totals.regular / totalBills) * 100)
-      : 0;
-
     const topBills = [...billEntries]
       .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
       .slice(0, 5);
-
     const highestBill = topBills[0] ? Number(topBills[0].amount || 0) : 0;
 
     return {
-      totalBills,
-      paidBills,
-      outstandingBills: totalBills - paidBills,
-      paidShare,
-      outstandingShare,
-      householdShare,
-      regularShare,
+      householdProgress,
+      regularProgress,
       topBills,
       highestBill,
     };
   }, [entries, totals]);
+
+  const weeklySpendData = useMemo(() => {
+    const weeklyBudget = totals.weekly;
+    const selectedMonthIndex = months.indexOf(month);
+    const previousBudgetMonth = getPreviousBudgetMonth(
+      Number(year),
+      selectedMonthIndex,
+    );
+    const payday = getPaydayForMonth(
+      previousBudgetMonth.year,
+      previousBudgetMonth.monthIndex,
+      bankHolidays,
+    );
+
+    let previousClosedBalance = 0;
+
+    return [1, 2, 3, 4].map((weekNumber) => {
+      const weekStart = new Date(payday);
+      weekStart.setDate(payday.getDate() + (weekNumber - 1) * 7);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      const items = weeklySpending.filter(
+        (item) => Number(item.week_number) === weekNumber,
+      );
+      const spent = items.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0,
+      );
+      const categoryGroups = categories
+        .map((category) => {
+          const categoryItems = items.filter(
+            (item) => (item.category || "other") === category.value,
+          );
+          const total = categoryItems.reduce(
+            (sum, item) => sum + Number(item.amount || 0),
+            0,
+          );
+
+          return {
+            ...category,
+            items: categoryItems,
+            total,
+          };
+        })
+        .filter((category) => category.items.length > 0);
+
+      const isClosed = weeklyStatus.some(
+        (status) =>
+          Number(status.week_number) === weekNumber && status.is_closed,
+      );
+      const available = weeklyBudget + previousClosedBalance;
+      const left = available - spent;
+      const carryOver = previousClosedBalance;
+      const spentPercent = available > 0 ? Math.min((spent / available) * 100, 100) : 0;
+
+      // Add isCurrentWeek logic
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const weekStartForCheck = new Date(weekStart);
+      const weekEndForCheck = new Date(weekEnd);
+      weekStartForCheck.setHours(0, 0, 0, 0);
+      weekEndForCheck.setHours(23, 59, 59, 999);
+
+      const isCurrentWeek = today >= weekStartForCheck && today <= weekEndForCheck;
+
+      if (isClosed) {
+        previousClosedBalance = left;
+      }
+
+      return {
+        weekNumber,
+        dateLabel: formatDateRange(weekStart, weekEnd),
+        startDate: weekStart,
+        endDate: weekEnd,
+        budget: weeklyBudget,
+        carryOver,
+        available,
+        spent,
+        left,
+        spentPercent,
+        isClosed,
+        isCurrentWeek,
+        items,
+        categoryGroups,
+      };
+    });
+  }, [weeklySpending, weeklyStatus, totals.weekly, month, year, bankHolidays]);
+
+  useEffect(() => {
+    if (!session?.user || weeklySpendData.length === 0) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const currentWeek = weeklySpendData.find((week) => {
+      const start = new Date(week.startDate);
+      const end = new Date(week.endDate);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      return today >= start && today <= end && !week.isClosed;
+    });
+
+    const nextOpenWeek = weeklySpendData.find((week) => !week.isClosed);
+    const selectedWeek = currentWeek || nextOpenWeek;
+
+    if (!selectedWeek) return;
+
+    setWeeklyForm((prev) => {
+      if (Number(prev.week_number) === Number(selectedWeek.weekNumber)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        week_number: selectedWeek.weekNumber,
+      };
+    });
+  }, [session, weeklySpendData]);
+
+  function toggleWeeklyCategory(weekNumber, categoryValue) {
+    const key = `${weekNumber}-${categoryValue}`;
+
+    setOpenWeeklyCategories((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  }
 
   if (!session) {
     return (
@@ -644,7 +939,9 @@ export default function App() {
           <strong>{money(totals.monthly)}</strong>
         </div>
         <div className="important-total">
-          <span>Weekly Left</span>
+          <span>
+            Weekly Left <br></br>(based on 4 weeks)
+          </span>
           <strong>{money(totals.weekly)}</strong>
         </div>
       </div>
@@ -652,69 +949,215 @@ export default function App() {
       <div className="charts-grid">
         <div className="chart-card">
           <div className="chart-heading">
-            <span>Paid vs Outstanding</span>
-            <strong>{chartData.paidShare}% paid</strong>
+            <span>Household Bills</span>
+            <strong>{chartData.householdProgress.paidShare}% paid</strong>
           </div>
           <div className="stacked-chart">
             <div
               className="stacked-paid"
-              style={{ width: `${chartData.paidShare}%` }}
+              style={{ width: `${chartData.householdProgress.paidShare}%` }}
             />
             <div
               className="stacked-outstanding"
-              style={{ width: `${chartData.outstandingShare}%` }}
+              style={{ width: `${chartData.householdProgress.outstandingShare}%` }}
             />
           </div>
           <div className="chart-legend">
-            <span>Paid: {money(chartData.paidBills)}</span>
-            <span>Outstanding: {money(chartData.outstandingBills)}</span>
+            <span>Paid: {money(chartData.householdProgress.paid)}</span>
+            <span>Outstanding: {money(chartData.householdProgress.outstanding)}</span>
           </div>
         </div>
 
         <div className="chart-card">
           <div className="chart-heading">
-            <span>Bill Split</span>
-            <strong>{money(chartData.totalBills)}</strong>
+            <span>Regular Payments</span>
+            <strong>{chartData.regularProgress.paidShare}% paid</strong>
           </div>
           <div className="stacked-chart">
             <div
-              className="stacked-household"
-              style={{ width: `${chartData.householdShare}%` }}
+              className="stacked-paid"
+              style={{ width: `${chartData.regularProgress.paidShare}%` }}
             />
             <div
-              className="stacked-regular"
-              style={{ width: `${chartData.regularShare}%` }}
+              className="stacked-outstanding"
+              style={{ width: `${chartData.regularProgress.outstandingShare}%` }}
             />
           </div>
           <div className="chart-legend">
-            <span>Household: {chartData.householdShare}%</span>
-            <span>TK Bills: {chartData.regularShare}%</span>
+            <span>Paid: {money(chartData.regularProgress.paid)}</span>
+            <span>Outstanding: {money(chartData.regularProgress.outstanding)}</span>
           </div>
         </div>
+      </div>
 
-        <div className="chart-card wide-chart">
-          <div className="chart-heading">
-            <span>Top Bills</span>
-            <strong>Top {chartData.topBills.length}</strong>
+      <div className="weekly-spend-section">
+        <div className="weekly-spend-header">
+          <div>
+            <h2>Weekly Spending Tracker</h2>
+            <p>Track spending outside of regular bills.</p>
           </div>
-          <div className="bar-chart">
-            {chartData.topBills.map((entry) => (
-              <div className="bar-row" key={entry.id}>
-                <span>{entry.name}</span>
-                <div className="bar-track">
+          <strong>Weekly budget: {money(totals.weekly)}</strong>
+        </div>
+
+        <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
+          <select
+            value={weeklyForm.week_number}
+            onChange={(e) =>
+              setWeeklyForm({ ...weeklyForm, week_number: e.target.value })
+            }
+          >
+            {weeklySpendData.map((week) => (
+              <option
+                key={week.weekNumber}
+                value={week.weekNumber}
+                disabled={week.isClosed}
+              >
+                Week {week.weekNumber} ({week.dateLabel})
+                {week.isClosed ? " - closed" : ""}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="What did you spend on?"
+            value={weeklyForm.description}
+            onChange={(e) =>
+              setWeeklyForm({ ...weeklyForm, description: e.target.value })
+            }
+            required
+          />
+
+          <input
+            placeholder="Amount"
+            type="number"
+            step="0.01"
+            value={weeklyForm.amount}
+            onChange={(e) =>
+              setWeeklyForm({ ...weeklyForm, amount: e.target.value })
+            }
+            required
+          />
+
+          <select
+            value={weeklyForm.category}
+            onChange={(e) =>
+              setWeeklyForm({ ...weeklyForm, category: e.target.value })
+            }
+          >
+            {categories.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.icon} {category.label}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={weeklyForm.spent_date}
+            onChange={(e) =>
+              setWeeklyForm({ ...weeklyForm, spent_date: e.target.value })
+            }
+          />
+
+          <button>Add Spend</button>
+        </form>
+
+        <div className="weekly-spend-grid">
+          {weeklySpendData.map((week) => (
+            <div
+              className={`weekly-spend-card ${week.isClosed ? "closed-week" : ""} ${week.isCurrentWeek ? "current-week" : ""}`}
+              key={week.weekNumber}
+            >
+              <div className="weekly-spend-card-header">
+                <span>
+                  Week {week.weekNumber}
+                  <small>{week.dateLabel}</small>
+                </span>
+                <span className="weekly-spend-badges">
+                  {week.isClosed && <em>Closed</em>}
+                </span>
+              </div>
+
+              <div className="weekly-spend-summary">
+                <span>Available: {money(week.available)}</span>
+                <span>Spent: {money(week.spent)}</span>
+                <strong>
+                  {money(week.left)} {week.isClosed ? "carried forward" : "remaining"}
+                </strong>
+              </div>
+
+              <div className="weekly-spend-progress">
+                <div className="weekly-spend-progress-label">
+                  <span>{Math.round(week.spentPercent)}% spent</span>
+                  <span>
+                    {money(week.spent)} of {money(week.available)}
+                  </span>
+                </div>
+                <div className="weekly-spend-progress-bar">
                   <div
-                    className="bar-fill"
-                    style={{
-                      width: chartData.highestBill
-                        ? `${(Number(entry.amount || 0) / chartData.highestBill) * 100}%`
-                        : "0%",
-                    }}
+                    className="weekly-spend-progress-fill"
+                    style={{ width: `${week.spentPercent}%` }}
                   />
                 </div>
-                <strong>{money(entry.amount)}</strong>
               </div>
-            ))}
-          </div>
+
+              <div className="weekly-spend-items">
+                {week.items.length === 0 ? (
+                  <p>No spending added yet.</p>
+                ) : (
+                  week.categoryGroups.map((category) => {
+                    const groupKey = `${week.weekNumber}-${category.value}`;
+                    const isOpen = !!openWeeklyCategories[groupKey];
+
+                    return (
+                      <div className="weekly-spend-category-group" key={groupKey}>
+                        <button
+                          type="button"
+                          className="weekly-spend-category-toggle"
+                          onClick={() =>
+                            toggleWeeklyCategory(week.weekNumber, category.value)
+                          }
+                        >
+                          <span>
+                            {isOpen ? "▼" : "▶"} {category.icon} {category.label}
+                          </span>
+                          <strong>{money(category.total)}</strong>
+                        </button>
+
+                        {isOpen && (
+                          <div className="weekly-spend-category-items">
+                            {category.items.map((item) => (
+                              <div className="weekly-spend-item" key={item.id}>
+                                <span>{item.description}</span>
+                                <strong>{money(item.amount)}</strong>
+                                {!week.isClosed && (
+                                  <button
+                                    type="button"
+                                    title="Delete"
+                                    onClick={() => deleteWeeklySpend(item.id)}
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="week-status-button"
+                onClick={() => setWeekClosed(week.weekNumber, !week.isClosed)}
+              >
+                {week.isClosed ? "Reopen Week" : "Close Week"}
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -741,7 +1184,6 @@ export default function App() {
             section,
             filterEntriesForView(sectionEntries),
           );
-
 
           return (
             <div key={section}>
@@ -922,146 +1364,146 @@ export default function App() {
 
                     <tbody>
                       {visibleSectionEntries.map((e) => (
-                          <tr key={e.id} className={e.paid ? "paid-row" : ""}>
-                            <td>
-                              <input
-                                value={e.name}
-                                onChange={(ev) => {
-                                  const val = ev.target.value;
-                                  setEntries((prev) =>
-                                    prev.map((x) =>
-                                      x.id === e.id ? { ...x, name: val } : x,
-                                    ),
-                                  );
-                                  updateEntry(e.id, "name", val);
-                                }}
-                              />
-                            </td>
+                        <tr key={e.id} className={e.paid ? "paid-row" : ""}>
+                          <td>
+                            <input
+                              value={e.name}
+                              onChange={(ev) => {
+                                const val = ev.target.value;
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === e.id ? { ...x, name: val } : x,
+                                  ),
+                                );
+                                updateEntry(e.id, "name", val);
+                              }}
+                            />
+                          </td>
 
+                          <td>
+                            <input
+                              type="number"
+                              value={e.amount}
+                              onChange={(ev) => {
+                                const val = ev.target.value;
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === e.id ? { ...x, amount: val } : x,
+                                  ),
+                                );
+                                updateEntry(e.id, "amount", Number(val));
+                              }}
+                            />
+                          </td>
+
+                          {section === "household_bill" && (
                             <td>
                               <input
                                 type="number"
-                                value={e.amount}
+                                value={e.due_day || ""}
                                 onChange={(ev) => {
                                   const val = ev.target.value;
                                   setEntries((prev) =>
                                     prev.map((x) =>
-                                      x.id === e.id ? { ...x, amount: val } : x,
+                                      x.id === e.id
+                                        ? { ...x, due_day: val }
+                                        : x,
                                     ),
                                   );
-                                  updateEntry(e.id, "amount", Number(val));
+                                  updateEntry(
+                                    e.id,
+                                    "due_day",
+                                    val ? Number(val) : null,
+                                  );
                                 }}
                               />
                             </td>
+                          )}
 
-                            {section === "household_bill" && (
+                          {section !== "income" &&
+                            section !== "carried_over" && (
+                              <td>
+                                {editingCategoryId === e.id ? (
+                                  <select
+                                    className="category-select"
+                                    value={e.category || "other"}
+                                    autoFocus
+                                    onBlur={() => setEditingCategoryId(null)}
+                                    onChange={(ev) => {
+                                      const val = ev.target.value;
+                                      setEntries((prev) =>
+                                        prev.map((x) =>
+                                          x.id === e.id
+                                            ? { ...x, category: val }
+                                            : x,
+                                        ),
+                                      );
+                                      updateEntry(e.id, "category", val);
+                                      setEditingCategoryId(null);
+                                    }}
+                                  >
+                                    {categories.map((category) => (
+                                      <option
+                                        key={category.value}
+                                        value={category.value}
+                                      >
+                                        {category.icon} {category.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className={`category-badge category-${e.category || "other"}`}
+                                    onClick={() => setEditingCategoryId(e.id)}
+                                  >
+                                    {categories.find(
+                                      (category) =>
+                                        category.value ===
+                                        (e.category || "other"),
+                                    )?.icon || "📌"}
+                                  </button>
+                                )}
+                              </td>
+                            )}
+
+                          {section !== "income" &&
+                            section !== "carried_over" && (
                               <td>
                                 <input
-                                  type="number"
-                                  value={e.due_day || ""}
+                                  type="checkbox"
+                                  checked={!!e.paid}
                                   onChange={(ev) => {
-                                    const val = ev.target.value;
+                                    const checked = ev.target.checked;
                                     setEntries((prev) =>
                                       prev.map((x) =>
                                         x.id === e.id
-                                          ? { ...x, due_day: val }
+                                          ? { ...x, paid: checked }
                                           : x,
                                       ),
                                     );
-                                    updateEntry(
-                                      e.id,
-                                      "due_day",
-                                      val ? Number(val) : null,
-                                    );
+                                    updateEntry(e.id, "paid", checked);
                                   }}
                                 />
                               </td>
                             )}
 
-                            {section !== "income" &&
-                              section !== "carried_over" && (
-                                <td>
-                                  {editingCategoryId === e.id ? (
-                                    <select
-                                      className="category-select"
-                                      value={e.category || "other"}
-                                      autoFocus
-                                      onBlur={() => setEditingCategoryId(null)}
-                                      onChange={(ev) => {
-                                        const val = ev.target.value;
-                                        setEntries((prev) =>
-                                          prev.map((x) =>
-                                            x.id === e.id
-                                              ? { ...x, category: val }
-                                              : x,
-                                          ),
-                                        );
-                                        updateEntry(e.id, "category", val);
-                                        setEditingCategoryId(null);
-                                      }}
-                                    >
-                                      {categories.map((category) => (
-                                        <option
-                                          key={category.value}
-                                          value={category.value}
-                                        >
-                                          {category.icon} {category.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      className={`category-badge category-${e.category || "other"}`}
-                                      onClick={() => setEditingCategoryId(e.id)}
-                                    >
-                                      {categories.find(
-                                        (category) =>
-                                          category.value ===
-                                          (e.category || "other"),
-                                      )?.icon || "📌"}
-                                    </button>
-                                  )}
-                                </td>
-                              )}
-
-                            {section !== "income" &&
-                              section !== "carried_over" && (
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={!!e.paid}
-                                    onChange={(ev) => {
-                                      const checked = ev.target.checked;
-                                      setEntries((prev) =>
-                                        prev.map((x) =>
-                                          x.id === e.id
-                                            ? { ...x, paid: checked }
-                                            : x,
-                                        ),
-                                      );
-                                      updateEntry(e.id, "paid", checked);
-                                    }}
-                                  />
-                                </td>
-                              )}
-
-                            <td className="row-actions">
-                              <button
-                                title="Duplicate"
-                                onClick={() => duplicateEntry(e)}
-                              >
-                                ⧉
-                              </button>
-                              <button
-                                title="Delete"
-                                onClick={() => deleteEntry(e.id)}
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                          <td className="row-actions">
+                            <button
+                              title="Duplicate"
+                              onClick={() => duplicateEntry(e)}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              title="Delete"
+                              onClick={() => deleteEntry(e.id)}
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 )}
