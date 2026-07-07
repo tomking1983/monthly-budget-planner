@@ -112,6 +112,36 @@ function money(value) {
   return `£${Number(value || 0).toFixed(2)}`;
 }
 
+function AnimatedMoney({ value }) {
+  const [displayValue, setDisplayValue] = useState(Number(value || 0));
+
+  useEffect(() => {
+    const startValue = displayValue;
+    const endValue = Number(value || 0);
+    const duration = 450;
+    const startTime = performance.now();
+
+    function animate(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const nextValue = startValue + (endValue - startValue) * easedProgress;
+
+      setDisplayValue(nextValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    const animationFrame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [value]);
+
+  return <>{money(displayValue)}</>;
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
@@ -144,6 +174,14 @@ export default function App() {
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [openWeeklyCategories, setOpenWeeklyCategories] = useState({});
   const [bankHolidays, setBankHolidays] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [editingWeeklySpendId, setEditingWeeklySpendId] = useState(null);
+  const [weeklyEditForm, setWeeklyEditForm] = useState({
+    description: "",
+    amount: "",
+    category: "other",
+    spent_date: "",
+  });
 
   const [sortConfig, setSortConfig] = useState({
     household_bill: { key: "due_day", direction: "asc" },
@@ -230,6 +268,12 @@ export default function App() {
 
   async function signOut() {
     await supabase.auth.signOut();
+  }
+
+  function showToast(message) {
+    setToast(message);
+    window.clearTimeout(showToast._timer);
+    showToast._timer = window.setTimeout(() => setToast(null), 2400);
   }
 
   async function loadEntries() {
@@ -420,11 +464,54 @@ export default function App() {
       spent_date: "",
     });
 
+    showToast("✅ Spend added");
     loadWeeklySpending();
   }
 
   async function deleteWeeklySpend(id) {
-    await supabase.from("weekly_spending").delete().eq("id", id);
+    const { error } = await supabase.from("weekly_spending").delete().eq("id", id);
+
+    if (error) return alert(error.message);
+
+    showToast("🗑️ Spend removed");
+    loadWeeklySpending();
+  }
+
+  function startEditWeeklySpend(item) {
+    setEditingWeeklySpendId(item.id);
+    setWeeklyEditForm({
+      description: item.description || "",
+      amount: item.amount || "",
+      category: item.category || "other",
+      spent_date: item.spent_date || "",
+    });
+  }
+
+  function cancelEditWeeklySpend() {
+    setEditingWeeklySpendId(null);
+    setWeeklyEditForm({
+      description: "",
+      amount: "",
+      category: "other",
+      spent_date: "",
+    });
+  }
+
+  async function updateWeeklySpend(id) {
+    const { error } = await supabase
+      .from("weekly_spending")
+      .update({
+        description: weeklyEditForm.description,
+        amount: Number(weeklyEditForm.amount || 0),
+        category: weeklyEditForm.category,
+        spent_date: weeklyEditForm.spent_date || null,
+      })
+      .eq("id", id);
+
+    if (error) return alert(error.message);
+
+    cancelEditWeeklySpend();
+    showToast("✏️ Spend updated");
     loadWeeklySpending();
   }
 
@@ -459,6 +546,7 @@ export default function App() {
       if (error) return alert(error.message);
     }
 
+    showToast(isClosed ? "🔒 Week closed" : "🔓 Week reopened");
     loadWeeklyStatus();
   }
 
@@ -920,29 +1008,29 @@ export default function App() {
         </h2>
         <div>
           <span>Income</span>
-          <strong>{money(totals.income)}</strong>
+          <strong><AnimatedMoney value={totals.income} /></strong>
         </div>
         <div>
           <span>House Bills</span>
-          <strong>{money(totals.household)}</strong>
+          <strong><AnimatedMoney value={totals.household} /></strong>
         </div>
         <div>
           <span>50% Split</span>
-          <strong>{money(totals.half)}</strong>
+          <strong><AnimatedMoney value={totals.half} /></strong>
         </div>
         <div>
           <span>TK Bills</span>
-          <strong>{money(totals.regular)}</strong>
+          <strong><AnimatedMoney value={totals.regular} /></strong>
         </div>
         <div className="important-total">
           <span>Monthly Left</span>
-          <strong>{money(totals.monthly)}</strong>
+          <strong><AnimatedMoney value={totals.monthly} /></strong>
         </div>
         <div className="important-total">
           <span>
             Weekly Left <br></br>(based on 4 weeks)
           </span>
-          <strong>{money(totals.weekly)}</strong>
+          <strong><AnimatedMoney value={totals.weekly} /></strong>
         </div>
       </div>
 
@@ -963,8 +1051,8 @@ export default function App() {
             />
           </div>
           <div className="chart-legend">
-            <span>Paid: {money(chartData.householdProgress.paid)}</span>
-            <span>Outstanding: {money(chartData.householdProgress.outstanding)}</span>
+            <span>Paid: <AnimatedMoney value={chartData.householdProgress.paid} /></span>
+            <span>Outstanding: <AnimatedMoney value={chartData.householdProgress.outstanding} /></span>
           </div>
         </div>
 
@@ -984,8 +1072,8 @@ export default function App() {
             />
           </div>
           <div className="chart-legend">
-            <span>Paid: {money(chartData.regularProgress.paid)}</span>
-            <span>Outstanding: {money(chartData.regularProgress.outstanding)}</span>
+            <span>Paid: <AnimatedMoney value={chartData.regularProgress.paid} /></span>
+            <span>Outstanding: <AnimatedMoney value={chartData.regularProgress.outstanding} /></span>
           </div>
         </div>
       </div>
@@ -996,7 +1084,7 @@ export default function App() {
             <h2>Weekly Spending Tracker</h2>
             <p>Track spending outside of regular bills.</p>
           </div>
-          <strong>Weekly budget: {money(totals.weekly)}</strong>
+          <strong>Weekly budget: <AnimatedMoney value={totals.weekly} /></strong>
         </div>
 
         <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
@@ -1079,10 +1167,10 @@ export default function App() {
               </div>
 
               <div className="weekly-spend-summary">
-                <span>Available: {money(week.available)}</span>
-                <span>Spent: {money(week.spent)}</span>
+                <span>Available: <AnimatedMoney value={week.available} /></span>
+                <span>Spent: <AnimatedMoney value={week.spent} /></span>
                 <strong>
-                  {money(week.left)} {week.isClosed ? "carried forward" : "remaining"}
+                  <AnimatedMoney value={week.left} /> {week.isClosed ? "carried forward" : "remaining"}
                 </strong>
               </div>
 
@@ -1090,7 +1178,7 @@ export default function App() {
                 <div className="weekly-spend-progress-label">
                   <span>{Math.round(week.spentPercent)}% spent</span>
                   <span>
-                    {money(week.spent)} of {money(week.available)}
+                    <AnimatedMoney value={week.spent} /> of <AnimatedMoney value={week.available} />
                   </span>
                 </div>
                 <div className="weekly-spend-progress-bar">
@@ -1119,30 +1207,107 @@ export default function App() {
                           }
                         >
                           <span>
-                            {isOpen ? "▼" : "▶"} {category.icon} {category.label}
+                            <span className={`category-arrow ${isOpen ? "open" : ""}`}>▶</span>
+                            {category.icon} {category.label}
                           </span>
-                          <strong>{money(category.total)}</strong>
+                          <strong><AnimatedMoney value={category.total} /></strong>
                         </button>
 
-                        {isOpen && (
-                          <div className="weekly-spend-category-items">
-                            {category.items.map((item) => (
-                              <div className="weekly-spend-item" key={item.id}>
-                                <span>{item.description}</span>
-                                <strong>{money(item.amount)}</strong>
-                                {!week.isClosed && (
+                        <div className={`weekly-spend-category-items ${isOpen ? "open" : ""}`}>
+                          {category.items.map((item) => (
+                            <div
+                              className={`weekly-spend-item ${editingWeeklySpendId === item.id ? "editing-weekly-spend" : ""}`}
+                              key={item.id}
+                            >
+                              {editingWeeklySpendId === item.id ? (
+                                <>
+                                  <input
+                                    value={weeklyEditForm.description}
+                                    onChange={(e) =>
+                                      setWeeklyEditForm({
+                                        ...weeklyEditForm,
+                                        description: e.target.value,
+                                      })
+                                    }
+                                  />
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={weeklyEditForm.amount}
+                                    onChange={(e) =>
+                                      setWeeklyEditForm({
+                                        ...weeklyEditForm,
+                                        amount: e.target.value,
+                                      })
+                                    }
+                                  />
+                                  <select
+                                    value={weeklyEditForm.category}
+                                    onChange={(e) =>
+                                      setWeeklyEditForm({
+                                        ...weeklyEditForm,
+                                        category: e.target.value,
+                                      })
+                                    }
+                                  >
+                                    {categories.map((category) => (
+                                      <option key={category.value} value={category.value}>
+                                        {category.icon} {category.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    type="date"
+                                    value={weeklyEditForm.spent_date}
+                                    onChange={(e) =>
+                                      setWeeklyEditForm({
+                                        ...weeklyEditForm,
+                                        spent_date: e.target.value,
+                                      })
+                                    }
+                                  />
                                   <button
                                     type="button"
-                                    title="Delete"
-                                    onClick={() => deleteWeeklySpend(item.id)}
+                                    title="Save"
+                                    onClick={() => updateWeeklySpend(item.id)}
                                   >
-                                    ✕
+                                    ✓
                                   </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                                  <button
+                                    type="button"
+                                    title="Cancel"
+                                    onClick={cancelEditWeeklySpend}
+                                  >
+                                    ↩
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span>{item.description}</span>
+                                  <strong><AnimatedMoney value={item.amount} /></strong>
+                                  {!week.isClosed && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        title="Edit"
+                                        onClick={() => startEditWeeklySpend(item)}
+                                      >
+                                        ✎
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="Delete"
+                                        onClick={() => deleteWeeklySpend(item.id)}
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     );
                   })
@@ -1284,12 +1449,12 @@ export default function App() {
                   {section === "regular_payment" ||
                   section === "household_bill" ? (
                     <span className="section-breakdown">
-                      <span>Paid: {money(sectionPaid)}</span>
-                      <span>Outstanding: {money(sectionOutstanding)}</span>
-                      <strong>Total: {money(sectionTotal)}</strong>
+                      <span>Paid: <AnimatedMoney value={sectionPaid} /></span>
+                      <span>Outstanding: <AnimatedMoney value={sectionOutstanding} /></span>
+                      <strong>Total: <AnimatedMoney value={sectionTotal} /></strong>
                     </span>
                   ) : (
-                    <span className="section-total">{money(sectionTotal)}</span>
+                    <span className="section-total"><AnimatedMoney value={sectionTotal} /></span>
                   )}
                 </button>
 
@@ -1299,7 +1464,7 @@ export default function App() {
                     <div className="paid-progress-label">
                       <span>{sectionPaidPercent}% paid</span>
                       <span>
-                        {money(sectionPaid)} of {money(sectionTotal)}
+                        <AnimatedMoney value={sectionPaid} /> of <AnimatedMoney value={sectionTotal} />
                       </span>
                     </div>
                     <div className="paid-progress-bar">
@@ -1482,7 +1647,8 @@ export default function App() {
                                           : x,
                                       ),
                                     );
-                                    updateEntry(e.id, "paid", checked);
+                                  updateEntry(e.id, "paid", checked);
+                                  showToast(checked ? "✅ Bill marked paid" : "↩️ Bill marked unpaid");
                                   }}
                                 />
                               </td>
@@ -1512,6 +1678,8 @@ export default function App() {
           );
         },
       )}
+
+      {toast && <div className="toast-notification">{toast}</div>}
     </div>
   );
 }

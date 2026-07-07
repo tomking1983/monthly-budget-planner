@@ -1,3 +1,6 @@
+/* =========================
+   Theme variables
+   ========================= */
 :root {
   font-family:
     Inter,
@@ -33,6 +36,59 @@
   box-sizing: border-box;
 }
 
+@keyframes progressGrow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes paidRowFlash {
+  0% {
+    background: #ffffff;
+  }
+
+  45% {
+    background: #dcfce7;
+  }
+
+  100% {
+    background: var(--success-soft);
+  }
+}
+
+@keyframes checkboxPop {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.25);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* =========================
+   Base styles
+   ========================= */
 body {
   margin: 0;
   min-height: 100vh;
@@ -100,6 +156,9 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(34, 57, 85, 0.12);
 }
 
+/* =========================
+   Auth screen
+   ========================= */
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -126,6 +185,9 @@ select:focus {
   letter-spacing: -0.04em;
 }
 
+/* =========================
+   App layout and controls
+   ========================= */
 .app {
   max-width: 1220px;
   margin: 0 auto;
@@ -287,6 +349,9 @@ select:focus {
   letter-spacing: normal;
 }
 
+/* =========================
+   Sticky summary totals
+   ========================= */
 .summary-grid {
   position: fixed;
   left: 50%;
@@ -429,6 +494,9 @@ select:focus {
   color: var(--gold);
 }
 
+/* =========================
+   Bills tables
+   ========================= */
 table {
   width: 100%;
   border-collapse: separate;
@@ -503,6 +571,7 @@ td input {
 
 .paid-row td {
   background: var(--success-soft);
+  animation: paidRowFlash 0.45s ease both;
 }
 
 .paid-row input {
@@ -523,6 +592,7 @@ td input[type="checkbox"] {
 
 td input[type="checkbox"]:checked {
   accent-color: var(--navy);
+  animation: checkboxPop 0.22s ease both;
 }
 
 @media (max-width: 760px) {
@@ -800,6 +870,9 @@ td input[type="checkbox"]:checked {
   transition: width 0.25s ease;
 }
 
+/* =========================
+   Progress charts
+   ========================= */
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -813,11 +886,18 @@ td input[type="checkbox"]:checked {
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 8px 20px rgba(16, 32, 51, 0.06);
+  animation: fadeSlideUp 0.35s ease both;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
-.wide-chart {
-  grid-column: 1 / -1;
+.chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(16, 32, 51, 0.1);
 }
+
 
 .chart-heading {
   display: flex;
@@ -846,12 +926,11 @@ td input[type="checkbox"]:checked {
 }
 
 .stacked-paid,
-.stacked-outstanding,
-.stacked-household,
-.stacked-regular,
-.bar-fill {
+.stacked-outstanding {
   min-height: 100%;
-  transition: width 0.25s ease;
+  transform-origin: left;
+  animation: progressGrow 0.45s ease both;
+  transition: width 0.35s ease;
 }
 
 .stacked-paid {
@@ -862,13 +941,6 @@ td input[type="checkbox"]:checked {
   background: #f97316;
 }
 
-.stacked-household {
-  background: var(--navy);
-}
-
-.stacked-regular {
-  background: var(--gold);
-}
 
 .chart-legend {
   display: flex;
@@ -881,50 +953,16 @@ td input[type="checkbox"]:checked {
   font-weight: 700;
 }
 
-.bar-chart {
-  display: grid;
-  gap: 12px;
-}
-
-.bar-row {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(120px, 3fr) auto;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-}
-
-.bar-row span {
-  color: var(--text);
-  font-weight: 800;
-}
-
-.bar-row strong {
-  color: var(--text);
-  font-size: 13px;
-}
-
-.bar-track {
-  height: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e8eef5;
-}
-
-.bar-fill {
-  background: linear-gradient(90deg, var(--navy), var(--gold));
-}
 
 @media (max-width: 780px) {
   .charts-grid {
     grid-template-columns: 1fr;
   }
-
-  .bar-row {
-    grid-template-columns: 1fr;
-  }
 }
 
+/* =========================
+   Category badges and sorting
+   ========================= */
 .category-select {
   min-width: 130px;
 }
@@ -1012,6 +1050,9 @@ td input[type="checkbox"]:checked {
   box-shadow: none;
 }
 
+/* =========================
+   Weekly spending tracker
+   ========================= */
 .weekly-spend-section {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1019,6 +1060,7 @@ td input[type="checkbox"]:checked {
   padding: 16px;
   margin: 20px 0;
   box-shadow: 0 8px 20px rgba(16, 32, 51, 0.06);
+  animation: fadeSlideUp 0.35s ease both;
 }
 
 .weekly-spend-header {
@@ -1075,6 +1117,18 @@ td input[type="checkbox"]:checked {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 12px;
+  animation: fadeSlideUp 0.3s ease both;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.weekly-spend-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(16, 32, 51, 0.1);
 }
 
 
@@ -1183,7 +1237,9 @@ td input[type="checkbox"]:checked {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--navy), var(--gold));
-  transition: width 0.25s ease;
+  transform-origin: left;
+  animation: progressGrow 0.45s ease both;
+  transition: width 0.35s ease;
 }
 
 .weekly-spend-items {
@@ -1209,17 +1265,22 @@ td input[type="checkbox"]:checked {
   color: var(--text);
   box-shadow: none;
   text-align: left;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .weekly-spend-category-toggle:hover {
   background: #f8fafc;
+  border-color: #cbd5e1;
   box-shadow: none;
-  transform: none;
+  transform: translateY(-1px);
 }
 
 .weekly-spend-category-toggle span {
   min-width: 0;
-  overflow: hidden;
+  /* overflow: hidden; */
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
@@ -1231,10 +1292,34 @@ td input[type="checkbox"]:checked {
   font-size: 13px;
 }
 
+.category-arrow {
+  display: inline-block;
+  margin-right: 3px;
+  transition: transform 0.2s ease;
+}
+
+.category-arrow.open {
+  transform: rotate(90deg);
+}
+
 .weekly-spend-category-items {
   display: grid;
   gap: 6px;
   padding-left: 10px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    max-height 0.25s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.weekly-spend-category-items.open {
+  max-height: 500px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .weekly-spend-items p {
@@ -1246,13 +1331,55 @@ td input[type="checkbox"]:checked {
 
 .weekly-spend-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 8px;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 7px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.weekly-spend-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateX(2px);
+}
+
+.weekly-spend-item.editing-weekly-spend {
+  grid-template-columns: minmax(160px, 1.5fr) 95px 145px 140px auto auto;
+  align-items: center;
+  background: #f8fafc;
+  border-color: var(--gold);
+  box-shadow: 0 10px 22px rgba(212, 175, 55, 0.12);
+}
+
+.weekly-spend-item.editing-weekly-spend:hover {
+  transform: none;
+}
+
+.weekly-spend-item.editing-weekly-spend input,
+.weekly-spend-item.editing-weekly-spend select {
+  min-width: 0;
+  height: 32px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.weekly-spend-item.editing-weekly-spend button:nth-last-child(2) {
+  background: var(--success-soft);
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.weekly-spend-item.editing-weekly-spend button:last-child {
+  background: var(--gold-soft);
+  color: #8a6d1f;
+  border: 1px solid #f1df9a;
 }
 
 .weekly-spend-item span {
@@ -1323,5 +1450,66 @@ td input[type="checkbox"]:checked {
   .weekly-spend-form,
   .weekly-spend-grid {
     grid-template-columns: 1fr;
+  }
+
+  .weekly-spend-item.editing-weekly-spend {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================
+   Toast notifications
+   ========================= */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.toast-notification {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 14px 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--navy), #27476d);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 18px 40px rgba(16,32,51,.28);
+  border: 1px solid rgba(255,255,255,.12);
+  animation: toastIn .22s ease;
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+@media (max-width:700px){
+  .toast-notification{
+    width: calc(100% - 32px);
+    text-align:center;
+    bottom: 150px;
+  }
+}
+
+/* =========================
+   Accessibility
+   ========================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
