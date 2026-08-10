@@ -469,7 +469,10 @@ export default function App() {
   }
 
   async function deleteWeeklySpend(id) {
-    const { error } = await supabase.from("weekly_spending").delete().eq("id", id);
+    const { error } = await supabase
+      .from("weekly_spending")
+      .delete()
+      .eq("id", id);
 
     if (error) return alert(error.message);
 
@@ -731,7 +734,9 @@ export default function App() {
 
   const chartData = useMemo(() => {
     const calculateSectionProgress = (section) => {
-      const sectionEntries = entries.filter((entry) => entry.section === section);
+      const sectionEntries = entries.filter(
+        (entry) => entry.section === section,
+      );
       const total = sectionEntries.reduce(
         (sum, entry) => sum + Number(entry.amount || 0),
         0,
@@ -774,17 +779,20 @@ export default function App() {
   const weeklySpendData = useMemo(() => {
     const weeklyBudget = totals.weekly;
     const selectedMonthIndex = months.indexOf(month);
+
     const previousBudgetMonth = getPreviousBudgetMonth(
       Number(year),
       selectedMonthIndex,
     );
+
     const payday = getPaydayForMonth(
       previousBudgetMonth.year,
       previousBudgetMonth.monthIndex,
       bankHolidays,
     );
 
-    let previousClosedBalance = 0;
+    let previousWeekLeft = 0;
+    let previousWeekClosed = false;
 
     return [1, 2, 3, 4].map((weekNumber) => {
       const weekStart = new Date(payday);
@@ -796,15 +804,18 @@ export default function App() {
       const items = weeklySpending.filter(
         (item) => Number(item.week_number) === weekNumber,
       );
+
       const spent = items.reduce(
         (sum, item) => sum + Number(item.amount || 0),
         0,
       );
+
       const categoryGroups = categories
         .map((category) => {
           const categoryItems = items.filter(
             (item) => (item.category || "other") === category.value,
           );
+
           const total = categoryItems.reduce(
             (sum, item) => sum + Number(item.amount || 0),
             0,
@@ -822,25 +833,32 @@ export default function App() {
         (status) =>
           Number(status.week_number) === weekNumber && status.is_closed,
       );
-      const available = weeklyBudget + previousClosedBalance;
-      const left = available - spent;
-      const carryOver = previousClosedBalance;
-      const spentPercent = available > 0 ? Math.min((spent / available) * 100, 100) : 0;
 
-      // Add isCurrentWeek logic
+      // Only carry money forward from the immediately previous week,
+      // and only if that previous week has been closed.
+      const carryOver = previousWeekClosed ? previousWeekLeft : 0;
+
+      const available = weeklyBudget + carryOver;
+      const left = available - spent;
+
+      const spentPercent =
+        available > 0 ? Math.min((spent / available) * 100, 100) : 0;
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const weekStartForCheck = new Date(weekStart);
       const weekEndForCheck = new Date(weekEnd);
+
       weekStartForCheck.setHours(0, 0, 0, 0);
       weekEndForCheck.setHours(23, 59, 59, 999);
 
-      const isCurrentWeek = today >= weekStartForCheck && today <= weekEndForCheck;
+      const isCurrentWeek =
+        today >= weekStartForCheck && today <= weekEndForCheck;
 
-      if (isClosed) {
-        previousClosedBalance = left;
-      }
+      // Save this week's result so ONLY the next week can inherit it.
+      previousWeekLeft = left;
+      previousWeekClosed = isClosed;
 
       return {
         weekNumber,
@@ -1008,29 +1026,41 @@ export default function App() {
         </h2>
         <div>
           <span>Income</span>
-          <strong><AnimatedMoney value={totals.income} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.income} />
+          </strong>
         </div>
         <div>
           <span>House Bills</span>
-          <strong><AnimatedMoney value={totals.household} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.household} />
+          </strong>
         </div>
         <div>
           <span>50% Split</span>
-          <strong><AnimatedMoney value={totals.half} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.half} />
+          </strong>
         </div>
         <div>
           <span>TK Bills</span>
-          <strong><AnimatedMoney value={totals.regular} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.regular} />
+          </strong>
         </div>
         <div className="important-total">
           <span>Monthly Left</span>
-          <strong><AnimatedMoney value={totals.monthly} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.monthly} />
+          </strong>
         </div>
         <div className="important-total">
           <span>
             Weekly Left <br></br>(based on 4 weeks)
           </span>
-          <strong><AnimatedMoney value={totals.weekly} /></strong>
+          <strong>
+            <AnimatedMoney value={totals.weekly} />
+          </strong>
         </div>
       </div>
 
@@ -1047,12 +1077,19 @@ export default function App() {
             />
             <div
               className="stacked-outstanding"
-              style={{ width: `${chartData.householdProgress.outstandingShare}%` }}
+              style={{
+                width: `${chartData.householdProgress.outstandingShare}%`,
+              }}
             />
           </div>
           <div className="chart-legend">
-            <span>Paid: <AnimatedMoney value={chartData.householdProgress.paid} /></span>
-            <span>Outstanding: <AnimatedMoney value={chartData.householdProgress.outstanding} /></span>
+            <span>
+              Paid: <AnimatedMoney value={chartData.householdProgress.paid} />
+            </span>
+            <span>
+              Outstanding:{" "}
+              <AnimatedMoney value={chartData.householdProgress.outstanding} />
+            </span>
           </div>
         </div>
 
@@ -1068,12 +1105,19 @@ export default function App() {
             />
             <div
               className="stacked-outstanding"
-              style={{ width: `${chartData.regularProgress.outstandingShare}%` }}
+              style={{
+                width: `${chartData.regularProgress.outstandingShare}%`,
+              }}
             />
           </div>
           <div className="chart-legend">
-            <span>Paid: <AnimatedMoney value={chartData.regularProgress.paid} /></span>
-            <span>Outstanding: <AnimatedMoney value={chartData.regularProgress.outstanding} /></span>
+            <span>
+              Paid: <AnimatedMoney value={chartData.regularProgress.paid} />
+            </span>
+            <span>
+              Outstanding:{" "}
+              <AnimatedMoney value={chartData.regularProgress.outstanding} />
+            </span>
           </div>
         </div>
       </div>
@@ -1084,7 +1128,9 @@ export default function App() {
             <h2>Weekly Spending Tracker</h2>
             <p>Track spending outside of regular bills.</p>
           </div>
-          <strong>Weekly budget: <AnimatedMoney value={totals.weekly} /></strong>
+          <strong>
+            Weekly budget: <AnimatedMoney value={totals.weekly} />
+          </strong>
         </div>
 
         <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
@@ -1167,10 +1213,15 @@ export default function App() {
               </div>
 
               <div className="weekly-spend-summary">
-                <span>Available: <AnimatedMoney value={week.available} /></span>
-                <span>Spent: <AnimatedMoney value={week.spent} /></span>
+                <span>
+                  Available: <AnimatedMoney value={week.available} />
+                </span>
+                <span>
+                  Spent: <AnimatedMoney value={week.spent} />
+                </span>
                 <strong>
-                  <AnimatedMoney value={week.left} /> {week.isClosed ? "carried forward" : "remaining"}
+                  <AnimatedMoney value={week.left} />{" "}
+                  {week.isClosed ? "carried forward" : "remaining"}
                 </strong>
               </div>
 
@@ -1178,7 +1229,8 @@ export default function App() {
                 <div className="weekly-spend-progress-label">
                   <span>{Math.round(week.spentPercent)}% spent</span>
                   <span>
-                    <AnimatedMoney value={week.spent} /> of <AnimatedMoney value={week.available} />
+                    <AnimatedMoney value={week.spent} /> of{" "}
+                    <AnimatedMoney value={week.available} />
                   </span>
                 </div>
                 <div className="weekly-spend-progress-bar">
@@ -1198,22 +1250,36 @@ export default function App() {
                     const isOpen = !!openWeeklyCategories[groupKey];
 
                     return (
-                      <div className="weekly-spend-category-group" key={groupKey}>
+                      <div
+                        className="weekly-spend-category-group"
+                        key={groupKey}
+                      >
                         <button
                           type="button"
                           className="weekly-spend-category-toggle"
                           onClick={() =>
-                            toggleWeeklyCategory(week.weekNumber, category.value)
+                            toggleWeeklyCategory(
+                              week.weekNumber,
+                              category.value,
+                            )
                           }
                         >
                           <span>
-                            <span className={`category-arrow ${isOpen ? "open" : ""}`}>▶</span>
+                            <span
+                              className={`category-arrow ${isOpen ? "open" : ""}`}
+                            >
+                              ▶
+                            </span>
                             {category.icon} {category.label}
                           </span>
-                          <strong><AnimatedMoney value={category.total} /></strong>
+                          <strong>
+                            <AnimatedMoney value={category.total} />
+                          </strong>
                         </button>
 
-                        <div className={`weekly-spend-category-items ${isOpen ? "open" : ""}`}>
+                        <div
+                          className={`weekly-spend-category-items ${isOpen ? "open" : ""}`}
+                        >
                           {category.items.map((item) => (
                             <div
                               className={`weekly-spend-item ${editingWeeklySpendId === item.id ? "editing-weekly-spend" : ""}`}
@@ -1251,7 +1317,10 @@ export default function App() {
                                     }
                                   >
                                     {categories.map((category) => (
-                                      <option key={category.value} value={category.value}>
+                                      <option
+                                        key={category.value}
+                                        value={category.value}
+                                      >
                                         {category.icon} {category.label}
                                       </option>
                                     ))}
@@ -1284,20 +1353,26 @@ export default function App() {
                               ) : (
                                 <>
                                   <span>{item.description}</span>
-                                  <strong><AnimatedMoney value={item.amount} /></strong>
+                                  <strong>
+                                    <AnimatedMoney value={item.amount} />
+                                  </strong>
                                   {!week.isClosed && (
                                     <>
                                       <button
                                         type="button"
                                         title="Edit"
-                                        onClick={() => startEditWeeklySpend(item)}
+                                        onClick={() =>
+                                          startEditWeeklySpend(item)
+                                        }
                                       >
                                         ✎
                                       </button>
                                       <button
                                         type="button"
                                         title="Delete"
-                                        onClick={() => deleteWeeklySpend(item.id)}
+                                        onClick={() =>
+                                          deleteWeeklySpend(item.id)
+                                        }
                                       >
                                         ✕
                                       </button>
@@ -1449,12 +1524,21 @@ export default function App() {
                   {section === "regular_payment" ||
                   section === "household_bill" ? (
                     <span className="section-breakdown">
-                      <span>Paid: <AnimatedMoney value={sectionPaid} /></span>
-                      <span>Outstanding: <AnimatedMoney value={sectionOutstanding} /></span>
-                      <strong>Total: <AnimatedMoney value={sectionTotal} /></strong>
+                      <span>
+                        Paid: <AnimatedMoney value={sectionPaid} />
+                      </span>
+                      <span>
+                        Outstanding:{" "}
+                        <AnimatedMoney value={sectionOutstanding} />
+                      </span>
+                      <strong>
+                        Total: <AnimatedMoney value={sectionTotal} />
+                      </strong>
                     </span>
                   ) : (
-                    <span className="section-total"><AnimatedMoney value={sectionTotal} /></span>
+                    <span className="section-total">
+                      <AnimatedMoney value={sectionTotal} />
+                    </span>
                   )}
                 </button>
 
@@ -1464,7 +1548,8 @@ export default function App() {
                     <div className="paid-progress-label">
                       <span>{sectionPaidPercent}% paid</span>
                       <span>
-                        <AnimatedMoney value={sectionPaid} /> of <AnimatedMoney value={sectionTotal} />
+                        <AnimatedMoney value={sectionPaid} /> of{" "}
+                        <AnimatedMoney value={sectionTotal} />
                       </span>
                     </div>
                     <div className="paid-progress-bar">
@@ -1647,8 +1732,12 @@ export default function App() {
                                           : x,
                                       ),
                                     );
-                                  updateEntry(e.id, "paid", checked);
-                                  showToast(checked ? "✅ Bill marked paid" : "↩️ Bill marked unpaid");
+                                    updateEntry(e.id, "paid", checked);
+                                    showToast(
+                                      checked
+                                        ? "✅ Bill marked paid"
+                                        : "↩️ Bill marked unpaid",
+                                    );
                                   }}
                                 />
                               </td>
