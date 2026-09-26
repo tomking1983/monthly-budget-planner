@@ -1893,3 +1893,43 @@ td input[type="checkbox"]:checked {
 .current-time {
   color: var(--navy);
 }
+
+@media (max-width: 760px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .topbar-left {
+    display: block;
+  }
+
+  .topbar h1 {
+    font-size: 30px;
+    line-height: 1.05;
+    margin: 0;
+  }
+
+  .current-datetime {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px 14px;
+    padding-left: 0;
+    white-space: normal;
+    font-size: 14px;
+  }
+
+  .current-date,
+  .current-time {
+    white-space: nowrap;
+  }
+
+  .topbar button {
+    width: auto;
+    justify-self: start;
+  }
+}
