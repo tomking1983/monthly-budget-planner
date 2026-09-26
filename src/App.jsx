@@ -1144,7 +1144,8 @@ export default function App() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1>💰Monthly Budget Planner💰</h1>
+          <h1>Welcome Back</h1>
+          <p>Sign in to your Monthly Budget Planner</p>
           <input
             placeholder="Email"
             onChange={(e) => setEmail(e.target.value)}
@@ -1156,6 +1157,7 @@ export default function App() {
           />
           <button onClick={signIn}>Login</button>
           <button onClick={signUp}>Create account</button>
+          <p>Created by T. King - Version 2.0</p>
         </div>
       </div>
     );
@@ -1164,7 +1166,7 @@ export default function App() {
   return (
     <div className="app">
       <div className="topbar">
-        <h1>💰Monthly Budget Planner💰</h1>
+        <h1>Monthly Budget Planner</h1>
         <button onClick={signOut}>Logout</button>
       </div>
 
