@@ -163,6 +163,23 @@ export default function App() {
   const [entries, setEntries] = useState([]);
   const [weeklySpending, setWeeklySpending] = useState([]);
   const [weeklyStatus, setWeeklyStatus] = useState([]);
+  const [budgetSpending, setBudgetSpending] = useState([]);
+  const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
+
+  const [budgetSpendForm, setBudgetSpendForm] = useState({
+    description: "",
+    amount: "",
+    spent_date: "",
+  });
+
+  const [editingBudgetSpendId, setEditingBudgetSpendId] = useState(null);
+
+  const [budgetSpendEditForm, setBudgetSpendEditForm] = useState({
+    description: "",
+    amount: "",
+    spent_date: "",
+  });
+
   const [weeklyForm, setWeeklyForm] = useState({
     week_number: 1,
     description: "",
@@ -238,6 +255,7 @@ export default function App() {
       loadEntries();
       loadWeeklySpending();
       loadWeeklyStatus();
+      loadBudgetSpending();
     }
   }, [session, month, year]);
   async function loadWeeklyStatus() {
@@ -286,6 +304,18 @@ export default function App() {
 
     if (error) return alert(error.message);
     setEntries(data || []);
+  }
+
+  async function loadBudgetSpending() {
+    const { data, error } = await supabase
+      .from("budget_spending")
+      .select("*")
+      .order("spent_date", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) return alert(error.message);
+
+    setBudgetSpending(data || []);
   }
 
   async function loadWeeklySpending() {
@@ -399,6 +429,7 @@ export default function App() {
       week_number: entry.week_number,
       notes: entry.notes,
       category: entry.category || "other",
+      track_spending: entry.track_spending || false,
       paid: false,
     }));
 
@@ -553,6 +584,26 @@ export default function App() {
     loadWeeklyStatus();
   }
 
+  async function toggleTrackSpending(entry) {
+    const newValue = !entry.track_spending;
+
+    setEntries((prev) =>
+      prev.map((item) =>
+        item.id === entry.id ? { ...item, track_spending: newValue } : item,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("budget_entries")
+      .update({ track_spending: newValue })
+      .eq("id", entry.id);
+
+    if (error) {
+      alert(error.message);
+      loadEntries();
+    }
+  }
+
   async function updateEntry(id, field, value) {
     const { error } = await supabase
       .from("budget_entries")
@@ -577,6 +628,7 @@ export default function App() {
       amount: entry.amount,
       due_day: entry.due_day,
       category: entry.category || "other",
+      track_spending: entry.track_spending || false,
       paid: false,
     });
 
@@ -679,6 +731,159 @@ export default function App() {
     );
   }
 
+  function getBudgetSpendingForEntry(entryId) {
+    return budgetSpending.filter((item) => item.budget_entry_id === entryId);
+  }
+
+  function getBudgetSpentTotal(entryId) {
+    return getBudgetSpendingForEntry(entryId).reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0,
+    );
+  }
+
+  function getBudgetRemaining(entry) {
+    return Number(entry.amount || 0) - getBudgetSpentTotal(entry.id);
+  }
+
+  function getBudgetSpentPercent(entry) {
+    const budget = Number(entry.amount || 0);
+    const spent = getBudgetSpentTotal(entry.id);
+
+    if (budget <= 0) return 0;
+
+    return (spent / budget) * 100;
+  }
+
+  function getBudgetStatusClass(entry) {
+    const percent = getBudgetSpentPercent(entry);
+
+    if (percent >= 100) return "budget-status-danger";
+    if (percent >= 90) return "budget-status-orange";
+    if (percent >= 75) return "budget-status-warning";
+
+    return "budget-status-normal";
+  }
+
+  function openBudgetTracker(entry) {
+    setActiveBudgetEntry(entry);
+
+    setBudgetSpendForm({
+      description: "",
+      amount: "",
+      spent_date: "",
+    });
+  }
+
+  function closeBudgetTracker() {
+    setActiveBudgetEntry(null);
+
+    setBudgetSpendForm({
+      description: "",
+      amount: "",
+      spent_date: "",
+    });
+  }
+
+  async function addBudgetSpend(e) {
+    e.preventDefault();
+
+    if (!activeBudgetEntry) return;
+
+    const amount = Number(budgetSpendForm.amount || 0);
+
+    if (amount <= 0) {
+      alert("Enter an amount greater than £0.");
+      return;
+    }
+
+    const { error } = await supabase.from("budget_spending").insert({
+      user_id: session.user.id,
+      budget_entry_id: activeBudgetEntry.id,
+      amount,
+      description: budgetSpendForm.description.trim() || null,
+      spent_date: budgetSpendForm.spent_date || null,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setBudgetSpendForm({
+      description: "",
+      amount: "",
+      spent_date: "",
+    });
+
+    showToast("💰 Spend added");
+    loadBudgetSpending();
+  }
+
+  function startEditBudgetSpend(item) {
+    setEditingBudgetSpendId(item.id);
+
+    setBudgetSpendEditForm({
+      description: item.description || "",
+      amount: item.amount || "",
+      spent_date: item.spent_date || "",
+    });
+  }
+
+  function cancelEditBudgetSpend() {
+    setEditingBudgetSpendId(null);
+
+    setBudgetSpendEditForm({
+      description: "",
+      amount: "",
+      spent_date: "",
+    });
+  }
+
+  async function updateBudgetSpend(id) {
+    const amount = Number(budgetSpendEditForm.amount || 0);
+
+    if (amount <= 0) {
+      alert("Enter an amount greater than £0.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("budget_spending")
+      .update({
+        description: budgetSpendEditForm.description.trim() || null,
+        amount,
+        spent_date: budgetSpendEditForm.spent_date || null,
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    cancelEditBudgetSpend();
+    showToast("✏️ Spend updated");
+    loadBudgetSpending();
+  }
+
+  async function deleteBudgetSpend(id) {
+    if (!confirm("Delete this spend?")) return;
+
+    const { error } = await supabase
+      .from("budget_spending")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    showToast("🗑️ Spend deleted");
+    loadBudgetSpending();
+  }
+
   function sortEntriesForView(section, sectionEntries) {
     const current = sortConfig[section];
 
@@ -711,6 +916,20 @@ export default function App() {
       return 0;
     });
   }
+
+  const budgetMerchantSuggestions = useMemo(() => {
+    const unique = new Set();
+
+    budgetSpending.forEach((item) => {
+      const value = item.description?.trim();
+
+      if (value) {
+        unique.add(value);
+      }
+    });
+
+    return [...unique].sort((a, b) => a.localeCompare(b));
+  }, [budgetSpending]);
 
   const totals = useMemo(() => {
     const total = (section) =>
@@ -1583,6 +1802,8 @@ export default function App() {
                             Amount {sortIndicator(section, "amount")}
                           </button>
                         </th>
+
+                        <th>Budget Tracker</th>
                         {section === "household_bill" && (
                           <th>
                             <button
@@ -1644,6 +1865,37 @@ export default function App() {
                                 updateEntry(e.id, "amount", Number(val));
                               }}
                             />
+                          </td>
+
+                          <td
+                            className={`budget-tracker-summary ${
+                              e.track_spending ? "clickable-budget-tracker" : ""
+                            }`}
+                            onClick={() => {
+                              if (e.track_spending) {
+                                openBudgetTracker(e);
+                              }
+                            }}
+                          >
+                            {e.track_spending ? (
+                              <>
+                                <span>
+                                  Spent:
+                                  <strong>
+                                    {money(getBudgetSpentTotal(e.id))}
+                                  </strong>
+                                </span>
+
+                                <span>
+                                  Left:
+                                  <strong>
+                                    {money(getBudgetRemaining(e))}
+                                  </strong>
+                                </span>
+                              </>
+                            ) : (
+                              <span className="budget-tracker-empty">—</span>
+                            )}
                           </td>
 
                           {section === "household_bill" && (
@@ -1744,12 +1996,33 @@ export default function App() {
                             )}
 
                           <td className="row-actions">
+                            {(section === "household_bill" ||
+                              section === "regular_payment") && (
+                              <button
+                                type="button"
+                                title={
+                                  e.track_spending
+                                    ? "Stop tracking spending"
+                                    : "Track spending"
+                                }
+                                className={
+                                  e.track_spending
+                                    ? "track-spending-button active"
+                                    : "track-spending-button"
+                                }
+                                onClick={() => toggleTrackSpending(e)}
+                              >
+                                💰
+                              </button>
+                            )}
+
                             <button
                               title="Duplicate"
                               onClick={() => duplicateEntry(e)}
                             >
                               ⧉
                             </button>
+
                             <button
                               title="Delete"
                               onClick={() => deleteEntry(e.id)}
@@ -1766,6 +2039,248 @@ export default function App() {
             </div>
           );
         },
+      )}
+
+      {activeBudgetEntry && (
+        <div className="budget-modal-backdrop" onClick={closeBudgetTracker}>
+          <div className="budget-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="budget-modal-header">
+              <div>
+                <h2>{activeBudgetEntry.name}</h2>
+                <p>Monthly spending tracker</p>
+              </div>
+
+              <button
+                type="button"
+                className="budget-modal-close"
+                onClick={closeBudgetTracker}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="budget-modal-totals">
+              <div>
+                <span>Budget</span>
+                <strong>{money(activeBudgetEntry.amount)}</strong>
+              </div>
+
+              <div>
+                <span>Spent</span>
+                <strong>
+                  {money(getBudgetSpentTotal(activeBudgetEntry.id))}
+                </strong>
+              </div>
+
+              <div>
+                <span>Remaining</span>
+                <strong>{money(getBudgetRemaining(activeBudgetEntry))}</strong>
+              </div>
+            </div>
+
+            <div
+              className={`budget-modal-progress ${getBudgetStatusClass(
+                activeBudgetEntry,
+              )}`}
+            >
+              <div className="budget-modal-progress-label">
+                <span>
+                  {Math.round(getBudgetSpentPercent(activeBudgetEntry))}% used
+                </span>
+
+                <strong>
+                  {getBudgetRemaining(activeBudgetEntry) >= 0
+                    ? `${money(getBudgetRemaining(activeBudgetEntry))} remaining`
+                    : `${money(
+                        Math.abs(getBudgetRemaining(activeBudgetEntry)),
+                      )} over budget`}
+                </strong>
+              </div>
+
+              <div className="budget-modal-progress-bar">
+                <div
+                  className="budget-modal-progress-fill"
+                  style={{
+                    width: `${Math.min(
+                      getBudgetSpentPercent(activeBudgetEntry),
+                      100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <form className="budget-spend-form" onSubmit={addBudgetSpend}>
+              <input
+                type="text"
+                list="budget-merchant-suggestions"
+                placeholder="Where / what was this spend?"
+                value={budgetSpendForm.description}
+                onChange={(e) =>
+                  setBudgetSpendForm({
+                    ...budgetSpendForm,
+                    description: e.target.value,
+                  })
+                }
+              />
+
+              <datalist id="budget-merchant-suggestions">
+                {budgetMerchantSuggestions.map((merchant) => (
+                  <option key={merchant} value={merchant} />
+                ))}
+              </datalist>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="Amount"
+                value={budgetSpendForm.amount}
+                onChange={(e) =>
+                  setBudgetSpendForm({
+                    ...budgetSpendForm,
+                    amount: e.target.value,
+                  })
+                }
+                required
+              />
+
+              <input
+                type="date"
+                value={budgetSpendForm.spent_date}
+                onChange={(e) =>
+                  setBudgetSpendForm({
+                    ...budgetSpendForm,
+                    spent_date: e.target.value,
+                  })
+                }
+              />
+
+              <button type="submit">+ Add Spend</button>
+            </form>
+
+            <div className="budget-spend-history">
+              <h3>Spending History</h3>
+
+              {getBudgetSpendingForEntry(activeBudgetEntry.id).length === 0 ? (
+                <p className="budget-spend-empty">No spending recorded yet.</p>
+              ) : (
+                getBudgetSpendingForEntry(activeBudgetEntry.id).map(
+                  (item, index, allItems) => {
+                    const spentUpToThisPoint = allItems
+                      .slice(0, index + 1)
+                      .reduce(
+                        (sum, spend) => sum + Number(spend.amount || 0),
+                        0,
+                      );
+
+                    const remainingAfterSpend =
+                      Number(activeBudgetEntry.amount || 0) -
+                      spentUpToThisPoint;
+
+                    return (
+                      <div className="budget-spend-history-item" key={item.id}>
+                        {editingBudgetSpendId === item.id ? (
+                          <div className="budget-spend-edit-row">
+                            <input
+                              value={budgetSpendEditForm.description}
+                              onChange={(e) =>
+                                setBudgetSpendEditForm({
+                                  ...budgetSpendEditForm,
+                                  description: e.target.value,
+                                })
+                              }
+                            />
+
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={budgetSpendEditForm.amount}
+                              onChange={(e) =>
+                                setBudgetSpendEditForm({
+                                  ...budgetSpendEditForm,
+                                  amount: e.target.value,
+                                })
+                              }
+                            />
+
+                            <input
+                              type="date"
+                              value={budgetSpendEditForm.spent_date}
+                              onChange={(e) =>
+                                setBudgetSpendEditForm({
+                                  ...budgetSpendEditForm,
+                                  spent_date: e.target.value,
+                                })
+                              }
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => updateBudgetSpend(item.id)}
+                            >
+                              ✓
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={cancelEditBudgetSpend}
+                            >
+                              ↩
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="budget-spend-history-main">
+                              <div>
+                                <strong>{item.description || "Spend"}</strong>
+
+                                {item.spent_date && (
+                                  <span>
+                                    {new Date(
+                                      `${item.spent_date}T00:00:00`,
+                                    ).toLocaleDateString("en-GB")}
+                                  </span>
+                                )}
+                              </div>
+
+                              <strong>{money(item.amount)}</strong>
+                            </div>
+
+                            <div className="budget-spend-history-meta">
+                              <span>
+                                Remaining:{" "}
+                                <strong>{money(remainingAfterSpend)}</strong>
+                              </span>
+
+                              <div>
+                                <button
+                                  type="button"
+                                  title="Edit"
+                                  onClick={() => startEditBudgetSpend(item)}
+                                >
+                                  ✎
+                                </button>
+
+                                <button
+                                  type="button"
+                                  title="Delete"
+                                  onClick={() => deleteBudgetSpend(item.id)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  },
+                )
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && <div className="toast-notification">{toast}</div>}
