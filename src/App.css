@@ -220,7 +220,11 @@ select:focus {
 }
 
 .control-panel {
-  padding: 10px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  margin-top: 8px;
+  background: transparent;
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;
@@ -1856,4 +1860,36 @@ td input[type="checkbox"]:checked {
   .budget-spend-history-meta {
     align-items: flex-start;
   }
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 14px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.current-datetime {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 28px;
+  padding-left: 30px;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.current-date {
+  color: #166534;
+}
+
+.current-time {
+  color: var(--navy);
 }

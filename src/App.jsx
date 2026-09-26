@@ -112,6 +112,51 @@ function money(value) {
   return `£${Number(value || 0).toFixed(2)}`;
 }
 
+function formatCurrentDateTime(date) {
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const pad = (num) => String(num).padStart(2, "0");
+
+  const day = date.getDate();
+
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+
+  return {
+    date: `${days[date.getDay()]}, ${day}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+  };
+}
+
 function AnimatedMoney({ value }) {
   const [displayValue, setDisplayValue] = useState(Number(value || 0));
 
@@ -212,6 +257,10 @@ export default function App() {
     regular_payment: false,
   });
 
+  const [showMonthManagement, setShowMonthManagement] = useState(false);
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   const [form, setForm] = useState({
     section: "household_bill",
     name: "",
@@ -248,6 +297,14 @@ export default function App() {
     }
 
     loadBankHolidays();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -1166,76 +1223,116 @@ export default function App() {
   return (
     <div className="app">
       <div className="topbar">
-        <h1>Monthly Budget Planner</h1>
+        <div className="topbar-left">
+          <h1>Monthly Budget Planner</h1>
+        </div>
+
+        <div className="current-datetime">
+          <span className="current-date">
+            📅 {formatCurrentDateTime(currentTime).date}
+          </span>
+
+          <span className="current-time">
+            🕒 {formatCurrentDateTime(currentTime).time}
+          </span>
+        </div>
+
         <button onClick={signOut}>Logout</button>
       </div>
 
-      <div className="control-panel">
-        <div className="control-row month-row">
-          <div className="month-label-center">Select Month</div>
-          <div>
-            <select value={month} onChange={(e) => setMonth(e.target.value)}>
-              {months.map((monthName) => (
-                <option key={monthName} value={monthName}>
-                  {monthName}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="section-block">
+        <button
+          type="button"
+          className="section-header"
+          onClick={() => setShowMonthManagement((prev) => !prev)}
+        >
+          <span>{showMonthManagement ? "▼" : "▶"} MONTH MANAGEMENT</span>
+        </button>
 
-          <div>
-            <input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-            />
-          </div>
-        </div>
+        {showMonthManagement && (
+          <>
+            <p className="month-management-note">
+              These tools are only needed when setting up or maintaining a
+              month's budget.
+            </p>
 
-        <div className="control-row">
-          <div className="tool-card compact">
-            <h3>Month actions</h3>
-            <button onClick={addTemplate}>Create Template</button>
-            <button onClick={resetMonthValues}>Reset</button>
-            <button className="danger-button" onClick={clearMonth}>
-              Clear
-            </button>
-          </div>
+            <div className="control-panel">
+              <div className="control-row month-row">
+                <div className="month-label-center">Select Month</div>
 
-          <div className="tool-card compact">
-            <h3>Duplicate</h3>
+                <div>
+                  <select
+                    value={month}
+                    onChange={(e) => setMonth(e.target.value)}
+                  >
+                    {months.map((monthName) => (
+                      <option key={monthName} value={monthName}>
+                        {monthName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <select
-              value={targetMonth}
-              onChange={(e) => setTargetMonth(e.target.value)}
-            >
-              {months.map((monthName) => (
-                <option key={monthName} value={monthName}>
-                  {monthName}
-                </option>
-              ))}
-            </select>
+                <div>
+                  <input
+                    type="number"
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value))}
+                  />
+                </div>
+              </div>
 
-            <input
-              type="number"
-              value={targetYear}
-              onChange={(e) => setTargetYear(e.target.value)}
-            />
+              <div className="control-row">
+                <div className="tool-card compact">
+                  <h3>Month actions</h3>
 
-            <label className="checkbox-group">
-              <input
-                type="checkbox"
-                checked={resetOnDuplicate}
-                onChange={(e) => setResetOnDuplicate(e.target.checked)}
-              />
-              <strong>
-                <span>Reset amounts to £0</span>
-              </strong>
-            </label>
+                  <button onClick={addTemplate}>Create Template</button>
 
-            <button onClick={duplicateMonth}>Duplicate</button>
-          </div>
-        </div>
+                  <button onClick={resetMonthValues}>Reset</button>
+
+                  <button className="danger-button" onClick={clearMonth}>
+                    Clear
+                  </button>
+                </div>
+
+                <div className="tool-card compact">
+                  <h3>Duplicate</h3>
+
+                  <select
+                    value={targetMonth}
+                    onChange={(e) => setTargetMonth(e.target.value)}
+                  >
+                    {months.map((monthName) => (
+                      <option key={monthName} value={monthName}>
+                        {monthName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    value={targetYear}
+                    onChange={(e) => setTargetYear(e.target.value)}
+                  />
+
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      checked={resetOnDuplicate}
+                      onChange={(e) => setResetOnDuplicate(e.target.checked)}
+                    />
+
+                    <strong>
+                      <span>Reset amounts to £0</span>
+                    </strong>
+                  </label>
+
+                  <button onClick={duplicateMonth}>Duplicate</button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="summary-grid">
