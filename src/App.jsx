@@ -1,4 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  CartesianGrid,
+  Cell,
+  Legend,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import { supabase } from "./lib/supabaseClient";
 import "./App.css";
 const months = [
@@ -204,18 +220,19 @@ export default function App() {
   const [targetYear, setTargetYear] = useState(
     currentDate.getMonth() === 11 ? currentYear + 1 : currentYear,
   );
-const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
-const [entries, setEntries] = useState([]);
-const [weeklySpending, setWeeklySpending] = useState([]);
-const [weeklyStatus, setWeeklyStatus] = useState([]);
+  const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
+  const [entries, setEntries] = useState([]);
+  const [weeklySpending, setWeeklySpending] = useState([]);
+  const [weeklyStatus, setWeeklyStatus] = useState([]);
+  const [insightsSpending, setInsightsSpending] = useState([]);
 
-const [receiptScanning, setReceiptScanning] = useState(false);
-const [receiptResult, setReceiptResult] = useState(null);
-const [receiptScanError, setReceiptScanError] = useState("");
-const [receiptScanSuccess, setReceiptScanSuccess] = useState(false);
+  const [receiptScanning, setReceiptScanning] = useState(false);
+  const [receiptResult, setReceiptResult] = useState(null);
+  const [receiptScanError, setReceiptScanError] = useState("");
+  const [receiptScanSuccess, setReceiptScanSuccess] = useState(false);
 
-const [budgetSpending, setBudgetSpending] = useState([]);
-const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
+  const [budgetSpending, setBudgetSpending] = useState([]);
+  const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
   const [budgetSpendForm, setBudgetSpendForm] = useState({
     description: "",
@@ -264,6 +281,22 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
   });
 
   const [showMonthManagement, setShowMonthManagement] = useState(false);
+
+  const [activeView, setActiveView] = useState("budget");
+  const [insightsRange, setInsightsRange] = useState("this_month");
+  const [insightsDrilldown, setInsightsDrilldown] = useState(null);
+  const [insightsDrilldownSort, setInsightsDrilldownSort] = useState("newest");
+  const [insightsDrilldownSearch, setInsightsDrilldownSearch] = useState("");
+  const [merchantAliases, setMerchantAliases] = useState([]);
+  const [renamingMerchant, setRenamingMerchant] = useState(false);
+  const [merchantRenameValue, setMerchantRenameValue] = useState("");
+  const [merchantRules, setMerchantRules] = useState([]);
+  const [showMerchantRules, setShowMerchantRules] = useState(false);
+
+  const [merchantRuleForm, setMerchantRuleForm] = useState({
+    match_text: "",
+    display_name: "",
+  });
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -319,6 +352,9 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
       loadWeeklySpending();
       loadWeeklyStatus();
       loadBudgetSpending();
+      loadInsightsSpending();
+      loadMerchantAliases();
+      loadMerchantRules();
     }
   }, [session, month, year]);
   async function loadWeeklyStatus() {
@@ -331,6 +367,143 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
     if (error) return alert(error.message);
     setWeeklyStatus(data || []);
+  }
+
+  async function loadMerchantAliases() {
+    const { data, error } = await supabase
+      .from("merchant_aliases")
+      .select("*")
+      .order("original_name", { ascending: true });
+
+    if (error) {
+      console.error("Could not load merchant aliases:", error);
+      return;
+    }
+
+    setMerchantAliases(data || []);
+  }
+
+  async function loadMerchantRules() {
+    const { data, error } = await supabase
+      .from("merchant_rules")
+      .select("*")
+      .order("match_text", { ascending: true });
+
+    if (error) {
+      console.error("Could not load merchant rules:", error);
+      return;
+    }
+
+    setMerchantRules(data || []);
+  }
+
+  async function addMerchantRule(e) {
+    e.preventDefault();
+
+    const matchText = merchantRuleForm.match_text.trim();
+    const displayName = merchantRuleForm.display_name.trim();
+
+    if (!matchText || !displayName) {
+      alert("Enter both a match and display name.");
+      return;
+    }
+
+    const { error } = await supabase.from("merchant_rules").insert({
+      user_id: session.user.id,
+      match_text: matchText,
+      display_name: displayName,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setMerchantRuleForm({
+      match_text: "",
+      display_name: "",
+    });
+
+    await loadMerchantRules();
+
+    showToast("🏷️ Merchant rule added");
+  }
+
+  async function deleteMerchantRule(id) {
+    const { error } = await supabase
+      .from("merchant_rules")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadMerchantRules();
+
+    showToast("🗑️ Merchant rule removed");
+  }
+
+  async function saveMerchantAlias() {
+    if (!insightsDrilldown || insightsDrilldown.type !== "merchant") {
+      return;
+    }
+
+    const displayName = merchantRenameValue.trim();
+
+    if (!displayName) {
+      alert("Enter a merchant name.");
+      return;
+    }
+
+    const existingAlias = merchantAliases.find(
+      (item) =>
+        item.original_name === insightsDrilldown.value ||
+        item.display_name === insightsDrilldown.value,
+    );
+
+    const originalName =
+      existingAlias?.original_name || insightsDrilldown.value;
+
+    let error;
+
+    if (existingAlias) {
+      const result = await supabase
+        .from("merchant_aliases")
+        .update({
+          display_name: displayName,
+        })
+        .eq("id", existingAlias.id);
+
+      error = result.error;
+    } else {
+      const result = await supabase.from("merchant_aliases").insert({
+        user_id: session.user.id,
+        original_name: originalName,
+        display_name: displayName,
+      });
+
+      error = result.error;
+    }
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadMerchantAliases();
+
+    setInsightsDrilldown({
+      ...insightsDrilldown,
+      label: displayName,
+      value: displayName,
+    });
+
+    setRenamingMerchant(false);
+    setMerchantRenameValue("");
+
+    showToast("🏷️ Merchant renamed");
   }
 
   async function signIn() {
@@ -392,6 +565,21 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
     if (error) return alert(error.message);
     setWeeklySpending(data || []);
+  }
+
+  async function loadInsightsSpending() {
+    const { data, error } = await supabase
+      .from("weekly_spending")
+      .select("*")
+      .order("year", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Could not load insights spending:", error);
+      return;
+    }
+
+    setInsightsSpending(data || []);
   }
 
   async function addTemplate() {
@@ -653,6 +841,7 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
     showToast("✅ Spend added");
     loadWeeklySpending();
+    loadInsightsSpending();
   }
 
   async function deleteWeeklySpend(id) {
@@ -665,6 +854,7 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
     showToast("🗑️ Spend removed");
     loadWeeklySpending();
+    loadInsightsSpending();
   }
 
   function startEditWeeklySpend(item) {
@@ -703,6 +893,7 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
     cancelEditWeeklySpend();
     showToast("✏️ Spend updated");
     loadWeeklySpending();
+    loadInsightsSpending();
   }
 
   function isWeekClosed(weekNumber) {
@@ -832,6 +1023,85 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
     }
 
     return payday;
+  }
+
+  function normaliseMerchantName(name) {
+    const original = (name || "").trim();
+
+    if (!original) return "Other";
+
+    const value = original.toLowerCase();
+
+    // Supermarkets
+    if (/\btesco\b/.test(value)) return "Tesco";
+    if (/\basda\b/.test(value)) return "Asda";
+    if (/\baldi\b/.test(value)) return "Aldi";
+    if (/\blidl\b/.test(value)) return "Lidl";
+    if (/\bsainsbury'?s?\b/.test(value)) return "Sainsbury's";
+    if (/\bmorrisons?\b/.test(value)) return "Morrisons";
+    if (/\bwaitrose\b/.test(value)) return "Waitrose";
+    if (/\bco[\s-]?op\b/.test(value)) return "Co-op";
+    if (/\biceland\b/.test(value)) return "Iceland";
+
+    // Online / retail
+    if (value.includes("amazon") || value.includes("amzn")) {
+      return "Amazon";
+    }
+
+    if (/\bb&m\b/.test(value)) return "B&M";
+    if (value.includes("home bargains")) return "Home Bargains";
+    if (value.includes("poundland")) return "Poundland";
+
+    // Fuel
+    if (/\bshell\b/.test(value)) return "Shell";
+    if (/\besso\b/.test(value)) return "Esso";
+    if (/\bbp\b/.test(value)) return "BP";
+
+    // Food / takeaway
+    if (value.includes("mcdonald") || value.includes("mcdonalds")) {
+      return "McDonald's";
+    }
+
+    if (value.includes("kfc")) return "KFC";
+    if (value.includes("burger king")) return "Burger King";
+    if (value.includes("just eat")) return "Just Eat";
+    if (value.includes("deliveroo")) return "Deliveroo";
+    if (value.includes("uber eats")) return "Uber Eats";
+
+    // Coffee
+    if (value.includes("starbucks")) return "Starbucks";
+    if (value.includes("costa")) return "Costa";
+
+    return original;
+  }
+
+  function getMerchantName(name) {
+    const originalName = (name || "").trim();
+
+    if (!originalName) return "Other";
+
+    // 1. Manual alias always wins
+    const alias = merchantAliases.find(
+      (item) => item.original_name === originalName,
+    );
+
+    if (alias?.display_name) {
+      return alias.display_name;
+    }
+
+    // 2. User-created merchant rules
+    const lowerName = originalName.toLowerCase();
+
+    const matchingRule = [...merchantRules]
+      .sort((a, b) => b.match_text.length - a.match_text.length)
+      .find((rule) => lowerName.includes(rule.match_text.toLowerCase()));
+
+    if (matchingRule?.display_name) {
+      return matchingRule.display_name;
+    }
+
+    // 3. Built-in automatic cleanup
+    return normaliseMerchantName(originalName);
   }
 
   function getPreviousBudgetMonth(yearValue, monthIndex) {
@@ -1073,6 +1343,302 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
     });
   }
 
+  const insightsData = useMemo(() => {
+    const now = new Date();
+
+    function getItemDate(item) {
+      if (item.spent_date) {
+        return new Date(`${item.spent_date}T12:00:00`);
+      }
+
+      const monthIndex = months.indexOf(item.month);
+
+      if (monthIndex === -1) return null;
+
+      return new Date(Number(item.year), monthIndex, 1);
+    }
+
+    function isInRange(item) {
+      const itemDate = getItemDate(item);
+
+      if (!itemDate || Number.isNaN(itemDate.getTime())) return false;
+
+      const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const startOfNextMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        1,
+      );
+
+      if (insightsRange === "this_month") {
+        return itemDate >= startOfThisMonth && itemDate < startOfNextMonth;
+      }
+
+      if (insightsRange === "last_month") {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = startOfThisMonth;
+
+        return itemDate >= start && itemDate < end;
+      }
+
+      if (insightsRange === "last_3_months") {
+        const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+
+        return itemDate >= start && itemDate < startOfNextMonth;
+      }
+
+      if (insightsRange === "year") {
+        return itemDate.getFullYear() === now.getFullYear();
+      }
+
+      return true;
+    }
+
+    const filtered = insightsSpending.filter(isInRange);
+
+    const totalSpend = filtered.reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const transactionCount = filtered.length;
+
+    const weekKeys = new Set(
+      filtered.map((item) => `${item.year}-${item.month}-${item.week_number}`),
+    );
+
+    const averageWeekly = weekKeys.size > 0 ? totalSpend / weekKeys.size : 0;
+
+    const merchantMap = {};
+
+    filtered.forEach((item) => {
+      const merchant = getMerchantName(item.description);
+
+      merchantMap[merchant] =
+        (merchantMap[merchant] || 0) + Number(item.amount || 0);
+    });
+
+    const merchants = Object.entries(merchantMap)
+      .map(([merchant, total]) => ({
+        merchant,
+        total,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    const biggestMerchant = merchants[0] || {
+      merchant: "—",
+      total: 0,
+    };
+
+    const categoryData = categories
+      .map((category) => {
+        const total = filtered
+          .filter((item) => (item.category || "other") === category.value)
+          .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+        return {
+          name: `${category.icon} ${category.label}`,
+          value: total,
+          category: category.value,
+        };
+      })
+      .filter((item) => item.value > 0);
+
+    const weeklyData = [1, 2, 3, 4].map((weekNumber) => ({
+      week: `Week ${weekNumber}`,
+      weekNumber,
+      spend: filtered
+        .filter((item) => Number(item.week_number) === weekNumber)
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    }));
+
+    const monthlyTrend = [];
+
+    let trendMonths = 6;
+
+    if (insightsRange === "this_month") {
+      trendMonths = 6;
+    }
+
+    if (insightsRange === "last_month") {
+      trendMonths = 6;
+    }
+
+    if (insightsRange === "last_3_months") {
+      trendMonths = 3;
+    }
+
+    if (insightsRange === "year") {
+      trendMonths = now.getMonth() + 1;
+    }
+
+    const trendEndDate =
+      insightsRange === "last_month"
+        ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+
+    for (let offset = trendMonths - 1; offset >= 0; offset--) {
+      const date = new Date(
+        trendEndDate.getFullYear(),
+        trendEndDate.getMonth() - offset,
+        1,
+      );
+
+      const monthName = months[date.getMonth()];
+      const yearValue = date.getFullYear();
+
+      const spend = insightsSpending
+        .filter(
+          (item) => item.month === monthName && Number(item.year) === yearValue,
+        )
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+      monthlyTrend.push({
+        month: date.toLocaleDateString("en-GB", {
+          month: "short",
+        }),
+        spend,
+      });
+    }
+
+    const currentMonthTotal = insightsSpending
+      .filter(
+        (item) =>
+          item.month === months[now.getMonth()] &&
+          Number(item.year) === now.getFullYear(),
+      )
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const previousMonthTotal = insightsSpending
+      .filter(
+        (item) =>
+          item.month === months[previousDate.getMonth()] &&
+          Number(item.year) === previousDate.getFullYear(),
+      )
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const monthDifference = currentMonthTotal - previousMonthTotal;
+
+    const monthDifferencePercent =
+      previousMonthTotal > 0 ? (monthDifference / previousMonthTotal) * 100 : 0;
+
+    return {
+      filtered,
+      totalSpend,
+      transactionCount,
+      averageWeekly,
+      biggestMerchant,
+      categoryData,
+      weeklyData,
+      monthlyTrend,
+      topMerchants: merchants.slice(0, 8),
+      monthDifference,
+      monthDifferencePercent,
+      currentMonthTotal,
+      previousMonthTotal,
+    };
+  }, [insightsSpending, insightsRange, merchantAliases, merchantRules]);
+
+  const insightsDrilldownItems = useMemo(() => {
+    if (!insightsDrilldown) return [];
+
+    let items = insightsData.filtered || [];
+
+    if (insightsDrilldown.type === "merchant") {
+      items = items.filter(
+        (item) => getMerchantName(item.description) === insightsDrilldown.value,
+      );
+    }
+
+    if (insightsDrilldown.type === "category") {
+      items = items.filter(
+        (item) => (item.category || "other") === insightsDrilldown.value,
+      );
+    }
+
+    if (insightsDrilldown.type === "week") {
+      items = items.filter(
+        (item) => Number(item.week_number) === Number(insightsDrilldown.value),
+      );
+    }
+
+    if (insightsDrilldown.type === "month") {
+      items = insightsSpending.filter((item) => {
+        const itemMonthIndex = months.indexOf(item.month);
+
+        if (itemMonthIndex === -1) return false;
+
+        const itemDate = new Date(Number(item.year), itemMonthIndex, 1);
+
+        return (
+          itemDate.toLocaleDateString("en-GB", {
+            month: "short",
+          }) === insightsDrilldown.value
+        );
+      });
+    }
+
+    const searchTerm = insightsDrilldownSearch.trim().toLowerCase();
+
+    if (searchTerm) {
+      items = items.filter((item) => {
+        const description = (item.description || "").toLowerCase();
+        const category = getCategoryLabel(item.category).toLowerCase();
+
+        return (
+          description.includes(searchTerm) || category.includes(searchTerm)
+        );
+      });
+    }
+
+    return [...items].sort((a, b) => {
+      if (insightsDrilldownSort === "highest") {
+        return Number(b.amount || 0) - Number(a.amount || 0);
+      }
+
+      if (insightsDrilldownSort === "lowest") {
+        return Number(a.amount || 0) - Number(b.amount || 0);
+      }
+
+      const aDate = a.spent_date || "";
+      const bDate = b.spent_date || "";
+
+      if (insightsDrilldownSort === "oldest") {
+        return aDate.localeCompare(bDate);
+      }
+
+      return bDate.localeCompare(aDate);
+    });
+  }, [
+    insightsDrilldown,
+    insightsData,
+    insightsDrilldownSort,
+    insightsDrilldownSearch,
+  ]);
+
+  const insightsDrilldownTotal = useMemo(() => {
+    return insightsDrilldownItems.reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0,
+    );
+  }, [insightsDrilldownItems]);
+
+  const insightsDrilldownCount = insightsDrilldownItems.length;
+
+  const insightsDrilldownAverage = useMemo(() => {
+    if (!insightsDrilldownItems.length) return 0;
+
+    return (
+      insightsDrilldownItems.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0,
+      ) / insightsDrilldownItems.length
+    );
+  }, [insightsDrilldownItems]);
+
   const budgetMerchantSuggestions = useMemo(() => {
     const unique = new Set();
 
@@ -1313,7 +1879,7 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
           />
           <button onClick={signIn}>Login</button>
           <button onClick={signUp}>Create account</button>
-          <p>Created by T. King - Version 2.0</p>
+          <p>Created by T. King - Version 3.0</p>
         </div>
       </div>
     );
@@ -1339,302 +1905,415 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
         <button onClick={signOut}>Logout</button>
       </div>
 
-      <div className="section-block">
+      <div className="main-nav">
         <button
           type="button"
-          className="section-header"
-          onClick={() => setShowMonthManagement((prev) => !prev)}
+          className={activeView === "budget" ? "main-nav-active" : ""}
+          onClick={() => setActiveView("budget")}
         >
-          <span>{showMonthManagement ? "▼" : "▶"} MONTH MANAGEMENT</span>
+          💰 Budget Planner
         </button>
 
-        {showMonthManagement && (
-          <>
-            <p className="month-management-note">
-              These tools are only needed when setting up or maintaining a
-              month's budget.
-            </p>
+        <button
+          type="button"
+          className={activeView === "insights" ? "main-nav-active" : ""}
+          onClick={() => setActiveView("insights")}
+        >
+          📈 Insights
+        </button>
+      </div>
 
-            <div className="control-panel">
-              <div className="control-row month-row">
-                <div className="month-label-center">Select Month</div>
+      {activeView === "budget" && (
+        <>
+          <div className="section-block">
+            <button
+              type="button"
+              className="section-header"
+              onClick={() => setShowMonthManagement((prev) => !prev)}
+            >
+              <span>{showMonthManagement ? "▼" : "▶"} MONTH MANAGEMENT</span>
+            </button>
 
-                <div>
-                  <select
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                  >
-                    {months.map((monthName) => (
-                      <option key={monthName} value={monthName}>
-                        {monthName}
-                      </option>
-                    ))}
-                  </select>
+            {showMonthManagement && (
+              <>
+                <p className="month-management-note">
+                  These tools are only needed when setting up or maintaining a
+                  month's budget.
+                </p>
+
+                <div className="control-panel">
+                  <div className="control-row month-row">
+                    <div className="month-label-center">Select Month</div>
+
+                    <div>
+                      <select
+                        value={month}
+                        onChange={(e) => setMonth(e.target.value)}
+                      >
+                        {months.map((monthName) => (
+                          <option key={monthName} value={monthName}>
+                            {monthName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <input
+                        type="number"
+                        value={year}
+                        onChange={(e) => setYear(Number(e.target.value))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="control-row">
+                    <div className="tool-card compact">
+                      <h3>Month actions</h3>
+
+                      <button onClick={addTemplate}>Create Template</button>
+
+                      <button onClick={resetMonthValues}>Reset</button>
+
+                      <button className="danger-button" onClick={clearMonth}>
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="tool-card compact">
+                      <h3>Duplicate</h3>
+
+                      <select
+                        value={targetMonth}
+                        onChange={(e) => setTargetMonth(e.target.value)}
+                      >
+                        {months.map((monthName) => (
+                          <option key={monthName} value={monthName}>
+                            {monthName}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        type="number"
+                        value={targetYear}
+                        onChange={(e) => setTargetYear(e.target.value)}
+                      />
+
+                      <label className="checkbox-group">
+                        <input
+                          type="checkbox"
+                          checked={resetOnDuplicate}
+                          onChange={(e) =>
+                            setResetOnDuplicate(e.target.checked)
+                          }
+                        />
+
+                        <strong>
+                          <span>Reset amounts to £0</span>
+                        </strong>
+                      </label>
+
+                      <button onClick={duplicateMonth}>Duplicate</button>
+                    </div>
+                  </div>
                 </div>
+              </>
+            )}
+          </div>
 
-                <div>
-                  <input
-                    type="number"
-                    value={year}
-                    onChange={(e) => setYear(Number(e.target.value))}
-                  />
-                </div>
+          <div className="summary-grid">
+            <h2 className="viewing-title">
+              Now Viewing:{" "}
+              <span>
+                {month} {year}
+              </span>
+            </h2>
+            <div>
+              <span>Income</span>
+              <strong>
+                <AnimatedMoney value={totals.income} />
+              </strong>
+            </div>
+            <div>
+              <span>House Bills</span>
+              <strong>
+                <AnimatedMoney value={totals.household} />
+              </strong>
+            </div>
+            <div>
+              <span>50% Split</span>
+              <strong>
+                <AnimatedMoney value={totals.half} />
+              </strong>
+            </div>
+            <div>
+              <span>TK Bills</span>
+              <strong>
+                <AnimatedMoney value={totals.regular} />
+              </strong>
+            </div>
+            <div className="important-total">
+              <span>Monthly Left</span>
+              <strong>
+                <AnimatedMoney value={totals.monthly} />
+              </strong>
+            </div>
+            <div className="important-total">
+              <span>
+                Weekly Left <br></br>(based on 4 weeks)
+              </span>
+              <strong>
+                <AnimatedMoney value={totals.weekly} />
+              </strong>
+            </div>
+          </div>
+
+          <div className="charts-grid">
+            <div className="chart-card">
+              <div className="chart-heading">
+                <span>Household Bills</span>
+                <strong>{chartData.householdProgress.paidShare}% paid</strong>
               </div>
+              <div className="stacked-chart">
+                <div
+                  className="stacked-paid"
+                  style={{ width: `${chartData.householdProgress.paidShare}%` }}
+                />
+                <div
+                  className="stacked-outstanding"
+                  style={{
+                    width: `${chartData.householdProgress.outstandingShare}%`,
+                  }}
+                />
+              </div>
+              <div className="chart-legend">
+                <span>
+                  Paid:{" "}
+                  <AnimatedMoney value={chartData.householdProgress.paid} />
+                </span>
+                <span>
+                  Outstanding:{" "}
+                  <AnimatedMoney
+                    value={chartData.householdProgress.outstanding}
+                  />
+                </span>
+              </div>
+            </div>
 
-              <div className="control-row">
-                <div className="tool-card compact">
-                  <h3>Month actions</h3>
+            <div className="chart-card">
+              <div className="chart-heading">
+                <span>Regular Payments</span>
+                <strong>{chartData.regularProgress.paidShare}% paid</strong>
+              </div>
+              <div className="stacked-chart">
+                <div
+                  className="stacked-paid"
+                  style={{ width: `${chartData.regularProgress.paidShare}%` }}
+                />
+                <div
+                  className="stacked-outstanding"
+                  style={{
+                    width: `${chartData.regularProgress.outstandingShare}%`,
+                  }}
+                />
+              </div>
+              <div className="chart-legend">
+                <span>
+                  Paid: <AnimatedMoney value={chartData.regularProgress.paid} />
+                </span>
+                <span>
+                  Outstanding:{" "}
+                  <AnimatedMoney
+                    value={chartData.regularProgress.outstanding}
+                  />
+                </span>
+              </div>
+            </div>
+          </div>
 
-                  <button onClick={addTemplate}>Create Template</button>
+          <div className="weekly-spend-section">
+            <div className="weekly-spend-header">
+              <div>
+                <h2>Weekly Spending Tracker</h2>
+                <p>Track spending outside of regular bills.</p>
+              </div>
+              <strong>
+                Weekly budget: <AnimatedMoney value={totals.weekly} />
+              </strong>
+            </div>
 
-                  <button onClick={resetMonthValues}>Reset</button>
+            <div className="receipt-scanner">
+              <label className="receipt-scan-button">
+                📷 Take / Scan Receipt
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
 
-                  <button className="danger-button" onClick={clearMonth}>
-                    Clear
+                    if (file) {
+                      scanReceipt(file);
+                    }
+
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              {receiptScanning && (
+                <span className="receipt-scan-status">Reading receipt...</span>
+              )}
+            </div>
+
+            {receiptScanSuccess && (
+              <div className="receipt-scan-success">
+                ✓ Receipt scanned successfully
+              </div>
+            )}
+
+            {receiptScanError && (
+              <div className="receipt-scan-error">{receiptScanError}</div>
+            )}
+
+            {receiptResult && (
+              <div className="receipt-review">
+                <div className="receipt-review-header">
+                  <div>
+                    <strong>Receipt scanned</strong>
+                    <span>Check the details before adding it.</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReceiptResult(null);
+                      setReceiptScanError("");
+                    }}
+                  >
+                    ✕
                   </button>
                 </div>
 
-                <div className="tool-card compact">
-                  <h3>Duplicate</h3>
+                <div className="receipt-review-fields">
+                  <input
+                    value={receiptResult.description}
+                    placeholder="Merchant"
+                    onChange={(e) =>
+                      setReceiptResult({
+                        ...receiptResult,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={receiptResult.amount}
+                    placeholder="Amount"
+                    onChange={(e) =>
+                      setReceiptResult({
+                        ...receiptResult,
+                        amount: e.target.value,
+                      })
+                    }
+                  />
 
                   <select
-                    value={targetMonth}
-                    onChange={(e) => setTargetMonth(e.target.value)}
+                    value={receiptResult.category}
+                    onChange={(e) =>
+                      setReceiptResult({
+                        ...receiptResult,
+                        category: e.target.value,
+                      })
+                    }
                   >
-                    {months.map((monthName) => (
-                      <option key={monthName} value={monthName}>
-                        {monthName}
+                    {categories.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.icon} {category.label}
                       </option>
                     ))}
                   </select>
 
                   <input
-                    type="number"
-                    value={targetYear}
-                    onChange={(e) => setTargetYear(e.target.value)}
+                    type="date"
+                    value={receiptResult.spent_date}
+                    onChange={(e) =>
+                      setReceiptResult({
+                        ...receiptResult,
+                        spent_date: e.target.value,
+                      })
+                    }
                   />
 
-                  <label className="checkbox-group">
-                    <input
-                      type="checkbox"
-                      checked={resetOnDuplicate}
-                      onChange={(e) => setResetOnDuplicate(e.target.checked)}
-                    />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWeeklyForm((prev) => ({
+                        ...prev,
+                        description: receiptResult.description,
+                        amount: receiptResult.amount,
+                        category: receiptResult.category,
+                        spent_date: receiptResult.spent_date,
+                      }));
 
-                    <strong>
-                      <span>Reset amounts to £0</span>
-                    </strong>
-                  </label>
+                      setReceiptResult(null);
+                      setReceiptScanError("");
 
-                  <button onClick={duplicateMonth}>Duplicate</button>
+                      showToast("📸 Receipt added to weekly form");
+                    }}
+                  >
+                    Use Receipt
+                  </button>
                 </div>
               </div>
-            </div>
-          </>
-        )}
-      </div>
+            )}
 
-      <div className="summary-grid">
-        <h2 className="viewing-title">
-          Now Viewing:{" "}
-          <span>
-            {month} {year}
-          </span>
-        </h2>
-        <div>
-          <span>Income</span>
-          <strong>
-            <AnimatedMoney value={totals.income} />
-          </strong>
-        </div>
-        <div>
-          <span>House Bills</span>
-          <strong>
-            <AnimatedMoney value={totals.household} />
-          </strong>
-        </div>
-        <div>
-          <span>50% Split</span>
-          <strong>
-            <AnimatedMoney value={totals.half} />
-          </strong>
-        </div>
-        <div>
-          <span>TK Bills</span>
-          <strong>
-            <AnimatedMoney value={totals.regular} />
-          </strong>
-        </div>
-        <div className="important-total">
-          <span>Monthly Left</span>
-          <strong>
-            <AnimatedMoney value={totals.monthly} />
-          </strong>
-        </div>
-        <div className="important-total">
-          <span>
-            Weekly Left <br></br>(based on 4 weeks)
-          </span>
-          <strong>
-            <AnimatedMoney value={totals.weekly} />
-          </strong>
-        </div>
-      </div>
-
-      <div className="charts-grid">
-        <div className="chart-card">
-          <div className="chart-heading">
-            <span>Household Bills</span>
-            <strong>{chartData.householdProgress.paidShare}% paid</strong>
-          </div>
-          <div className="stacked-chart">
-            <div
-              className="stacked-paid"
-              style={{ width: `${chartData.householdProgress.paidShare}%` }}
-            />
-            <div
-              className="stacked-outstanding"
-              style={{
-                width: `${chartData.householdProgress.outstandingShare}%`,
-              }}
-            />
-          </div>
-          <div className="chart-legend">
-            <span>
-              Paid: <AnimatedMoney value={chartData.householdProgress.paid} />
-            </span>
-            <span>
-              Outstanding:{" "}
-              <AnimatedMoney value={chartData.householdProgress.outstanding} />
-            </span>
-          </div>
-        </div>
-
-        <div className="chart-card">
-          <div className="chart-heading">
-            <span>Regular Payments</span>
-            <strong>{chartData.regularProgress.paidShare}% paid</strong>
-          </div>
-          <div className="stacked-chart">
-            <div
-              className="stacked-paid"
-              style={{ width: `${chartData.regularProgress.paidShare}%` }}
-            />
-            <div
-              className="stacked-outstanding"
-              style={{
-                width: `${chartData.regularProgress.outstandingShare}%`,
-              }}
-            />
-          </div>
-          <div className="chart-legend">
-            <span>
-              Paid: <AnimatedMoney value={chartData.regularProgress.paid} />
-            </span>
-            <span>
-              Outstanding:{" "}
-              <AnimatedMoney value={chartData.regularProgress.outstanding} />
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="weekly-spend-section">
-        <div className="weekly-spend-header">
-          <div>
-            <h2>Weekly Spending Tracker</h2>
-            <p>Track spending outside of regular bills.</p>
-          </div>
-          <strong>
-            Weekly budget: <AnimatedMoney value={totals.weekly} />
-          </strong>
-        </div>
-
-        <div className="receipt-scanner">
-          <label className="receipt-scan-button">
-            📷 Take / Scan Receipt
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-
-                if (file) {
-                  scanReceipt(file);
-                }
-
-                e.target.value = "";
-              }}
-            />
-          </label>
-
-          {receiptScanning && (
-            <span className="receipt-scan-status">Reading receipt...</span>
-          )}
-        </div>
-
-        {receiptScanSuccess && (
-          <div className="receipt-scan-success">
-            ✓ Receipt scanned successfully
-          </div>
-        )}
-
-        {receiptScanError && (
-          <div className="receipt-scan-error">{receiptScanError}</div>
-        )}
-
-        {receiptResult && (
-          <div className="receipt-review">
-            <div className="receipt-review-header">
-              <div>
-                <strong>Receipt scanned</strong>
-                <span>Check the details before adding it.</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setReceiptResult(null);
-                  setReceiptScanError("");
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="receipt-review-fields">
-              <input
-                value={receiptResult.description}
-                placeholder="Merchant"
+            <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
+              <select
+                value={weeklyForm.week_number}
                 onChange={(e) =>
-                  setReceiptResult({
-                    ...receiptResult,
-                    description: e.target.value,
-                  })
+                  setWeeklyForm({ ...weeklyForm, week_number: e.target.value })
                 }
+              >
+                {weeklySpendData.map((week) => (
+                  <option
+                    key={week.weekNumber}
+                    value={week.weekNumber}
+                    disabled={week.isClosed}
+                  >
+                    Week {week.weekNumber} ({week.dateLabel})
+                    {week.isClosed ? " - closed" : ""}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                placeholder="What did you spend on?"
+                value={weeklyForm.description}
+                onChange={(e) =>
+                  setWeeklyForm({ ...weeklyForm, description: e.target.value })
+                }
+                required
               />
 
               <input
+                placeholder="Amount"
                 type="number"
                 step="0.01"
-                value={receiptResult.amount}
-                placeholder="Amount"
+                value={weeklyForm.amount}
                 onChange={(e) =>
-                  setReceiptResult({
-                    ...receiptResult,
-                    amount: e.target.value,
-                  })
+                  setWeeklyForm({ ...weeklyForm, amount: e.target.value })
                 }
+                required
               />
 
               <select
-                value={receiptResult.category}
+                value={weeklyForm.category}
                 onChange={(e) =>
-                  setReceiptResult({
-                    ...receiptResult,
-                    category: e.target.value,
-                  })
+                  setWeeklyForm({ ...weeklyForm, category: e.target.value })
                 }
               >
                 {categories.map((category) => (
@@ -1646,964 +2325,1517 @@ const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
               <input
                 type="date"
-                value={receiptResult.spent_date}
+                value={weeklyForm.spent_date}
                 onChange={(e) =>
-                  setReceiptResult({
-                    ...receiptResult,
-                    spent_date: e.target.value,
-                  })
+                  setWeeklyForm({ ...weeklyForm, spent_date: e.target.value })
                 }
               />
 
-              <button
-                type="button"
-                onClick={() => {
-                  setWeeklyForm((prev) => ({
-                    ...prev,
-                    description: receiptResult.description,
-                    amount: receiptResult.amount,
-                    category: receiptResult.category,
-                    spent_date: receiptResult.spent_date,
-                  }));
+              <button>Add Spend</button>
+            </form>
 
-                  setReceiptResult(null);
-                  setReceiptScanError("");
+            <div className="weekly-spend-grid">
+              {weeklySpendData.map((week) => (
+                <div
+                  className={`weekly-spend-card ${week.isClosed ? "closed-week" : ""} ${week.isCurrentWeek ? "current-week" : ""}`}
+                  key={week.weekNumber}
+                >
+                  <div className="weekly-spend-card-header">
+                    <span>
+                      Week {week.weekNumber}
+                      <small>{week.dateLabel}</small>
+                    </span>
+                    <span className="weekly-spend-badges">
+                      {week.isClosed && <em>Closed</em>}
+                    </span>
+                  </div>
 
-                  showToast("📸 Receipt added to weekly form");
-                }}
-              >
-                Use Receipt
-              </button>
-            </div>
-          </div>
-        )}
+                  <div className="weekly-spend-summary">
+                    <span>
+                      Available: <AnimatedMoney value={week.available} />
+                    </span>
+                    <span>
+                      Spent: <AnimatedMoney value={week.spent} />
+                    </span>
+                    <strong>
+                      <AnimatedMoney value={week.left} />{" "}
+                      {week.isClosed ? "carried forward" : "remaining"}
+                    </strong>
+                  </div>
 
-        <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
-          <select
-            value={weeklyForm.week_number}
-            onChange={(e) =>
-              setWeeklyForm({ ...weeklyForm, week_number: e.target.value })
-            }
-          >
-            {weeklySpendData.map((week) => (
-              <option
-                key={week.weekNumber}
-                value={week.weekNumber}
-                disabled={week.isClosed}
-              >
-                Week {week.weekNumber} ({week.dateLabel})
-                {week.isClosed ? " - closed" : ""}
-              </option>
-            ))}
-          </select>
-
-          <input
-            placeholder="What did you spend on?"
-            value={weeklyForm.description}
-            onChange={(e) =>
-              setWeeklyForm({ ...weeklyForm, description: e.target.value })
-            }
-            required
-          />
-
-          <input
-            placeholder="Amount"
-            type="number"
-            step="0.01"
-            value={weeklyForm.amount}
-            onChange={(e) =>
-              setWeeklyForm({ ...weeklyForm, amount: e.target.value })
-            }
-            required
-          />
-
-          <select
-            value={weeklyForm.category}
-            onChange={(e) =>
-              setWeeklyForm({ ...weeklyForm, category: e.target.value })
-            }
-          >
-            {categories.map((category) => (
-              <option key={category.value} value={category.value}>
-                {category.icon} {category.label}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="date"
-            value={weeklyForm.spent_date}
-            onChange={(e) =>
-              setWeeklyForm({ ...weeklyForm, spent_date: e.target.value })
-            }
-          />
-
-          <button>Add Spend</button>
-        </form>
-
-        <div className="weekly-spend-grid">
-          {weeklySpendData.map((week) => (
-            <div
-              className={`weekly-spend-card ${week.isClosed ? "closed-week" : ""} ${week.isCurrentWeek ? "current-week" : ""}`}
-              key={week.weekNumber}
-            >
-              <div className="weekly-spend-card-header">
-                <span>
-                  Week {week.weekNumber}
-                  <small>{week.dateLabel}</small>
-                </span>
-                <span className="weekly-spend-badges">
-                  {week.isClosed && <em>Closed</em>}
-                </span>
-              </div>
-
-              <div className="weekly-spend-summary">
-                <span>
-                  Available: <AnimatedMoney value={week.available} />
-                </span>
-                <span>
-                  Spent: <AnimatedMoney value={week.spent} />
-                </span>
-                <strong>
-                  <AnimatedMoney value={week.left} />{" "}
-                  {week.isClosed ? "carried forward" : "remaining"}
-                </strong>
-              </div>
-
-              <div className="weekly-spend-progress">
-                <div className="weekly-spend-progress-label">
-                  <span>{Math.round(week.spentPercent)}% spent</span>
-                  <span>
-                    <AnimatedMoney value={week.spent} /> of{" "}
-                    <AnimatedMoney value={week.available} />
-                  </span>
-                </div>
-                <div className="weekly-spend-progress-bar">
-                  <div
-                    className="weekly-spend-progress-fill"
-                    style={{ width: `${week.spentPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="weekly-spend-items">
-                {week.items.length === 0 ? (
-                  <p>No spending added yet.</p>
-                ) : (
-                  week.categoryGroups.map((category) => {
-                    const groupKey = `${week.weekNumber}-${category.value}`;
-                    const isOpen = !!openWeeklyCategories[groupKey];
-
-                    return (
+                  <div className="weekly-spend-progress">
+                    <div className="weekly-spend-progress-label">
+                      <span>{Math.round(week.spentPercent)}% spent</span>
+                      <span>
+                        <AnimatedMoney value={week.spent} /> of{" "}
+                        <AnimatedMoney value={week.available} />
+                      </span>
+                    </div>
+                    <div className="weekly-spend-progress-bar">
                       <div
-                        className="weekly-spend-category-group"
-                        key={groupKey}
-                      >
-                        <button
-                          type="button"
-                          className="weekly-spend-category-toggle"
-                          onClick={() =>
-                            toggleWeeklyCategory(
-                              week.weekNumber,
-                              category.value,
-                            )
-                          }
-                        >
-                          <span>
-                            <span
-                              className={`category-arrow ${isOpen ? "open" : ""}`}
-                            >
-                              ▶
-                            </span>
-                            {category.icon} {category.label}
-                          </span>
-                          <strong>
-                            <AnimatedMoney value={category.total} />
-                          </strong>
-                        </button>
+                        className="weekly-spend-progress-fill"
+                        style={{ width: `${week.spentPercent}%` }}
+                      />
+                    </div>
+                  </div>
 
-                        <div
-                          className={`weekly-spend-category-items ${isOpen ? "open" : ""}`}
-                        >
-                          {category.items.map((item) => (
-                            <div
-                              className={`weekly-spend-item ${editingWeeklySpendId === item.id ? "editing-weekly-spend" : ""}`}
-                              key={item.id}
+                  <div className="weekly-spend-items">
+                    {week.items.length === 0 ? (
+                      <p>No spending added yet.</p>
+                    ) : (
+                      week.categoryGroups.map((category) => {
+                        const groupKey = `${week.weekNumber}-${category.value}`;
+                        const isOpen = !!openWeeklyCategories[groupKey];
+
+                        return (
+                          <div
+                            className="weekly-spend-category-group"
+                            key={groupKey}
+                          >
+                            <button
+                              type="button"
+                              className="weekly-spend-category-toggle"
+                              onClick={() =>
+                                toggleWeeklyCategory(
+                                  week.weekNumber,
+                                  category.value,
+                                )
+                              }
                             >
-                              {editingWeeklySpendId === item.id ? (
-                                <>
-                                  <input
-                                    value={weeklyEditForm.description}
-                                    onChange={(e) =>
-                                      setWeeklyEditForm({
-                                        ...weeklyEditForm,
-                                        description: e.target.value,
-                                      })
-                                    }
-                                  />
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={weeklyEditForm.amount}
-                                    onChange={(e) =>
-                                      setWeeklyEditForm({
-                                        ...weeklyEditForm,
-                                        amount: e.target.value,
-                                      })
-                                    }
-                                  />
-                                  <select
-                                    value={weeklyEditForm.category}
-                                    onChange={(e) =>
-                                      setWeeklyEditForm({
-                                        ...weeklyEditForm,
-                                        category: e.target.value,
-                                      })
-                                    }
-                                  >
-                                    {categories.map((category) => (
-                                      <option
-                                        key={category.value}
-                                        value={category.value}
-                                      >
-                                        {category.icon} {category.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <input
-                                    type="date"
-                                    value={weeklyEditForm.spent_date}
-                                    onChange={(e) =>
-                                      setWeeklyEditForm({
-                                        ...weeklyEditForm,
-                                        spent_date: e.target.value,
-                                      })
-                                    }
-                                  />
-                                  <button
-                                    type="button"
-                                    title="Save"
-                                    onClick={() => updateWeeklySpend(item.id)}
-                                  >
-                                    ✓
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Cancel"
-                                    onClick={cancelEditWeeklySpend}
-                                  >
-                                    ↩
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <span>{item.description}</span>
-                                  <strong>
-                                    <AnimatedMoney value={item.amount} />
-                                  </strong>
-                                  {!week.isClosed && (
+                              <span>
+                                <span
+                                  className={`category-arrow ${isOpen ? "open" : ""}`}
+                                >
+                                  ▶
+                                </span>
+                                {category.icon} {category.label}
+                              </span>
+                              <strong>
+                                <AnimatedMoney value={category.total} />
+                              </strong>
+                            </button>
+
+                            <div
+                              className={`weekly-spend-category-items ${isOpen ? "open" : ""}`}
+                            >
+                              {category.items.map((item) => (
+                                <div
+                                  className={`weekly-spend-item ${editingWeeklySpendId === item.id ? "editing-weekly-spend" : ""}`}
+                                  key={item.id}
+                                >
+                                  {editingWeeklySpendId === item.id ? (
                                     <>
-                                      <button
-                                        type="button"
-                                        title="Edit"
-                                        onClick={() =>
-                                          startEditWeeklySpend(item)
+                                      <input
+                                        value={weeklyEditForm.description}
+                                        onChange={(e) =>
+                                          setWeeklyEditForm({
+                                            ...weeklyEditForm,
+                                            description: e.target.value,
+                                          })
+                                        }
+                                      />
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={weeklyEditForm.amount}
+                                        onChange={(e) =>
+                                          setWeeklyEditForm({
+                                            ...weeklyEditForm,
+                                            amount: e.target.value,
+                                          })
+                                        }
+                                      />
+                                      <select
+                                        value={weeklyEditForm.category}
+                                        onChange={(e) =>
+                                          setWeeklyEditForm({
+                                            ...weeklyEditForm,
+                                            category: e.target.value,
+                                          })
                                         }
                                       >
-                                        ✎
+                                        {categories.map((category) => (
+                                          <option
+                                            key={category.value}
+                                            value={category.value}
+                                          >
+                                            {category.icon} {category.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <input
+                                        type="date"
+                                        value={weeklyEditForm.spent_date}
+                                        onChange={(e) =>
+                                          setWeeklyEditForm({
+                                            ...weeklyEditForm,
+                                            spent_date: e.target.value,
+                                          })
+                                        }
+                                      />
+                                      <button
+                                        type="button"
+                                        title="Save"
+                                        onClick={() =>
+                                          updateWeeklySpend(item.id)
+                                        }
+                                      >
+                                        ✓
                                       </button>
                                       <button
                                         type="button"
-                                        title="Delete"
-                                        onClick={() =>
-                                          deleteWeeklySpend(item.id)
-                                        }
+                                        title="Cancel"
+                                        onClick={cancelEditWeeklySpend}
                                       >
-                                        ✕
+                                        ↩
                                       </button>
                                     </>
+                                  ) : (
+                                    <>
+                                      <span>{item.description}</span>
+                                      <strong>
+                                        <AnimatedMoney value={item.amount} />
+                                      </strong>
+                                      {!week.isClosed && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            title="Edit"
+                                            onClick={() =>
+                                              startEditWeeklySpend(item)
+                                            }
+                                          >
+                                            ✎
+                                          </button>
+                                          <button
+                                            type="button"
+                                            title="Delete"
+                                            onClick={() =>
+                                              deleteWeeklySpend(item.id)
+                                            }
+                                          >
+                                            ✕
+                                          </button>
+                                        </>
+                                      )}
+                                    </>
                                   )}
-                                </>
-                              )}
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="week-status-button"
+                    onClick={() =>
+                      setWeekClosed(week.weekNumber, !week.isClosed)
+                    }
+                  >
+                    {week.isClosed ? "Reopen Week" : "Close Week"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {["income", "carried_over", "household_bill", "regular_payment"].map(
+            (section) => {
+              const sectionEntries = entries.filter(
+                (e) => e.section === section,
+              );
+
+              const sectionTotal = sectionEntries.reduce(
+                (sum, e) => sum + Number(e.amount || 0),
+                0,
+              );
+
+              const sectionPaid = sectionEntries
+                .filter((e) => e.paid)
+                .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+              const sectionOutstanding = sectionTotal - sectionPaid;
+
+              const sectionPaidPercent = sectionTotal
+                ? Math.round((sectionPaid / sectionTotal) * 100)
+                : 0;
+
+              const visibleSectionEntries = sortEntriesForView(
+                section,
+                filterEntriesForView(sectionEntries),
+              );
+
+              return (
+                <div key={section}>
+                  {section === "household_bill" && (
+                    <>
+                      <div className="add-bill-panel">
+                        <h3>Add Bill / Income</h3>
+                        <form onSubmit={addEntry} className="entry-form">
+                          <select
+                            value={form.section}
+                            onChange={(e) =>
+                              setForm({ ...form, section: e.target.value })
+                            }
+                          >
+                            <option value="income">Income</option>
+                            <option value="carried_over">Carried over</option>
+                            <option value="household_bill">
+                              Household bill
+                            </option>
+                            <option value="regular_payment">TK Bill</option>
+                          </select>
+
+                          <input
+                            placeholder="Name"
+                            value={form.name}
+                            onChange={(e) =>
+                              setForm({ ...form, name: e.target.value })
+                            }
+                            required
+                          />
+
+                          <input
+                            placeholder="Amount"
+                            type="number"
+                            step="0.01"
+                            value={form.amount}
+                            onChange={(e) =>
+                              setForm({ ...form, amount: e.target.value })
+                            }
+                            required
+                          />
+
+                          <input
+                            placeholder="Due day"
+                            type="number"
+                            value={form.due_day}
+                            onChange={(e) =>
+                              setForm({ ...form, due_day: e.target.value })
+                            }
+                          />
+
+                          <select
+                            className="category-select"
+                            value={form.category}
+                            onChange={(e) =>
+                              setForm({ ...form, category: e.target.value })
+                            }
+                          >
+                            {categories.map((category) => (
+                              <option
+                                key={category.value}
+                                value={category.value}
+                              >
+                                {category.icon} {category.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button>Add Entry</button>
+                          <button type="button" onClick={() => window.print()}>
+                            Print / PDF
+                          </button>
+                        </form>
+                      </div>
+
+                      <div className="quick-filters">
+                        {["all", "unpaid", "paid", "due_soon"].map((filter) => (
+                          <button
+                            key={filter}
+                            type="button"
+                            className={
+                              entryFilter === filter ? "active-filter" : ""
+                            }
+                            onClick={() => setEntryFilter(filter)}
+                          >
+                            {filter === "due_soon" ? "Due soon" : filter}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="section-block">
+                    <button
+                      type="button"
+                      className="section-header"
+                      onClick={() => toggleSection(section)}
+                    >
+                      <span>
+                        {openSections[section] ? "▼" : "▶"}{" "}
+                        {section.replaceAll("_", " ").toUpperCase()}
+                      </span>
+                      {section === "regular_payment" ||
+                      section === "household_bill" ? (
+                        <span className="section-breakdown">
+                          <span>
+                            Paid: <AnimatedMoney value={sectionPaid} />
+                          </span>
+                          <span>
+                            Outstanding:{" "}
+                            <AnimatedMoney value={sectionOutstanding} />
+                          </span>
+                          <strong>
+                            Total: <AnimatedMoney value={sectionTotal} />
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="section-total">
+                          <AnimatedMoney value={sectionTotal} />
+                        </span>
+                      )}
+                    </button>
+
+                    {(section === "regular_payment" ||
+                      section === "household_bill") && (
+                      <div className="paid-progress-wrap">
+                        <div className="paid-progress-label">
+                          <span>{sectionPaidPercent}% paid</span>
+                          <span>
+                            <AnimatedMoney value={sectionPaid} /> of{" "}
+                            <AnimatedMoney value={sectionTotal} />
+                          </span>
+                        </div>
+                        <div className="paid-progress-bar">
+                          <div
+                            className="paid-progress-fill"
+                            style={{ width: `${sectionPaidPercent}%` }}
+                          />
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    )}
 
-              <button
-                type="button"
-                className="week-status-button"
-                onClick={() => setWeekClosed(week.weekNumber, !week.isClosed)}
-              >
-                {week.isClosed ? "Reopen Week" : "Close Week"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+                    {openSections[section] && (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>
+                              <button
+                                type="button"
+                                className="sort-button"
+                                onClick={() => updateSort(section, "name")}
+                              >
+                                Name {sortIndicator(section, "name")}
+                              </button>
+                            </th>
+                            <th>
+                              <button
+                                type="button"
+                                className="sort-button"
+                                onClick={() => updateSort(section, "amount")}
+                              >
+                                Amount {sortIndicator(section, "amount")}
+                              </button>
+                            </th>
 
-      {["income", "carried_over", "household_bill", "regular_payment"].map(
-        (section) => {
-          const sectionEntries = entries.filter((e) => e.section === section);
-
-          const sectionTotal = sectionEntries.reduce(
-            (sum, e) => sum + Number(e.amount || 0),
-            0,
-          );
-
-          const sectionPaid = sectionEntries
-            .filter((e) => e.paid)
-            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-          const sectionOutstanding = sectionTotal - sectionPaid;
-
-          const sectionPaidPercent = sectionTotal
-            ? Math.round((sectionPaid / sectionTotal) * 100)
-            : 0;
-
-          const visibleSectionEntries = sortEntriesForView(
-            section,
-            filterEntriesForView(sectionEntries),
-          );
-
-          return (
-            <div key={section}>
-              {section === "household_bill" && (
-                <>
-                  <div className="add-bill-panel">
-                    <h3>Add Bill / Income</h3>
-                    <form onSubmit={addEntry} className="entry-form">
-                      <select
-                        value={form.section}
-                        onChange={(e) =>
-                          setForm({ ...form, section: e.target.value })
-                        }
-                      >
-                        <option value="income">Income</option>
-                        <option value="carried_over">Carried over</option>
-                        <option value="household_bill">Household bill</option>
-                        <option value="regular_payment">TK Bill</option>
-                      </select>
-
-                      <input
-                        placeholder="Name"
-                        value={form.name}
-                        onChange={(e) =>
-                          setForm({ ...form, name: e.target.value })
-                        }
-                        required
-                      />
-
-                      <input
-                        placeholder="Amount"
-                        type="number"
-                        step="0.01"
-                        value={form.amount}
-                        onChange={(e) =>
-                          setForm({ ...form, amount: e.target.value })
-                        }
-                        required
-                      />
-
-                      <input
-                        placeholder="Due day"
-                        type="number"
-                        value={form.due_day}
-                        onChange={(e) =>
-                          setForm({ ...form, due_day: e.target.value })
-                        }
-                      />
-
-                      <select
-                        className="category-select"
-                        value={form.category}
-                        onChange={(e) =>
-                          setForm({ ...form, category: e.target.value })
-                        }
-                      >
-                        {categories.map((category) => (
-                          <option key={category.value} value={category.value}>
-                            {category.icon} {category.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button>Add Entry</button>
-                      <button type="button" onClick={() => window.print()}>
-                        Print / PDF
-                      </button>
-                    </form>
-                  </div>
-
-                  <div className="quick-filters">
-                    {["all", "unpaid", "paid", "due_soon"].map((filter) => (
-                      <button
-                        key={filter}
-                        type="button"
-                        className={
-                          entryFilter === filter ? "active-filter" : ""
-                        }
-                        onClick={() => setEntryFilter(filter)}
-                      >
-                        {filter === "due_soon" ? "Due soon" : filter}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="section-block">
-                <button
-                  type="button"
-                  className="section-header"
-                  onClick={() => toggleSection(section)}
-                >
-                  <span>
-                    {openSections[section] ? "▼" : "▶"}{" "}
-                    {section.replaceAll("_", " ").toUpperCase()}
-                  </span>
-                  {section === "regular_payment" ||
-                  section === "household_bill" ? (
-                    <span className="section-breakdown">
-                      <span>
-                        Paid: <AnimatedMoney value={sectionPaid} />
-                      </span>
-                      <span>
-                        Outstanding:{" "}
-                        <AnimatedMoney value={sectionOutstanding} />
-                      </span>
-                      <strong>
-                        Total: <AnimatedMoney value={sectionTotal} />
-                      </strong>
-                    </span>
-                  ) : (
-                    <span className="section-total">
-                      <AnimatedMoney value={sectionTotal} />
-                    </span>
-                  )}
-                </button>
-
-                {(section === "regular_payment" ||
-                  section === "household_bill") && (
-                  <div className="paid-progress-wrap">
-                    <div className="paid-progress-label">
-                      <span>{sectionPaidPercent}% paid</span>
-                      <span>
-                        <AnimatedMoney value={sectionPaid} /> of{" "}
-                        <AnimatedMoney value={sectionTotal} />
-                      </span>
-                    </div>
-                    <div className="paid-progress-bar">
-                      <div
-                        className="paid-progress-fill"
-                        style={{ width: `${sectionPaidPercent}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {openSections[section] && (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>
-                          <button
-                            type="button"
-                            className="sort-button"
-                            onClick={() => updateSort(section, "name")}
-                          >
-                            Name {sortIndicator(section, "name")}
-                          </button>
-                        </th>
-                        <th>
-                          <button
-                            type="button"
-                            className="sort-button"
-                            onClick={() => updateSort(section, "amount")}
-                          >
-                            Amount {sortIndicator(section, "amount")}
-                          </button>
-                        </th>
-
-                        <th>Budget Tracker</th>
-                        {section === "household_bill" && (
-                          <th>
-                            <button
-                              type="button"
-                              className="sort-button"
-                              onClick={() => updateSort(section, "due_day")}
-                            >
-                              Due {sortIndicator(section, "due_day")}
-                            </button>
-                          </th>
-                        )}
-                        {section !== "income" && section !== "carried_over" && (
-                          <th>
-                            <button
-                              type="button"
-                              className="sort-button"
-                              onClick={() => updateSort(section, "category")}
-                            >
-                              Category {sortIndicator(section, "category")}
-                            </button>
-                          </th>
-                        )}
-                        {section !== "income" && section !== "carried_over" && (
-                          <th>Paid</th>
-                        )}
-                        <th></th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {visibleSectionEntries.map((e) => (
-                        <tr key={e.id} className={e.paid ? "paid-row" : ""}>
-                          <td>
-                            <input
-                              value={e.name}
-                              onChange={(ev) => {
-                                const val = ev.target.value;
-                                setEntries((prev) =>
-                                  prev.map((x) =>
-                                    x.id === e.id ? { ...x, name: val } : x,
-                                  ),
-                                );
-                                updateEntry(e.id, "name", val);
-                              }}
-                            />
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              value={e.amount}
-                              onChange={(ev) => {
-                                const val = ev.target.value;
-                                setEntries((prev) =>
-                                  prev.map((x) =>
-                                    x.id === e.id ? { ...x, amount: val } : x,
-                                  ),
-                                );
-                                updateEntry(e.id, "amount", Number(val));
-                              }}
-                            />
-                          </td>
-
-                          <td
-                            className={`budget-tracker-summary ${
-                              e.track_spending ? "clickable-budget-tracker" : ""
-                            }`}
-                            onClick={() => {
-                              if (e.track_spending) {
-                                openBudgetTracker(e);
-                              }
-                            }}
-                          >
-                            {e.track_spending ? (
-                              <>
-                                <span>
-                                  Spent:
-                                  <strong>
-                                    {money(getBudgetSpentTotal(e.id))}
-                                  </strong>
-                                </span>
-
-                                <span>
-                                  Left:
-                                  <strong>
-                                    {money(getBudgetRemaining(e))}
-                                  </strong>
-                                </span>
-                              </>
-                            ) : (
-                              <span className="budget-tracker-empty">—</span>
+                            <th>Budget Tracker</th>
+                            {section === "household_bill" && (
+                              <th>
+                                <button
+                                  type="button"
+                                  className="sort-button"
+                                  onClick={() => updateSort(section, "due_day")}
+                                >
+                                  Due {sortIndicator(section, "due_day")}
+                                </button>
+                              </th>
                             )}
-                          </td>
+                            {section !== "income" &&
+                              section !== "carried_over" && (
+                                <th>
+                                  <button
+                                    type="button"
+                                    className="sort-button"
+                                    onClick={() =>
+                                      updateSort(section, "category")
+                                    }
+                                  >
+                                    Category{" "}
+                                    {sortIndicator(section, "category")}
+                                  </button>
+                                </th>
+                              )}
+                            {section !== "income" &&
+                              section !== "carried_over" && <th>Paid</th>}
+                            <th></th>
+                          </tr>
+                        </thead>
 
-                          {section === "household_bill" && (
-                            <td>
-                              <input
-                                type="number"
-                                value={e.due_day || ""}
-                                onChange={(ev) => {
-                                  const val = ev.target.value;
-                                  setEntries((prev) =>
-                                    prev.map((x) =>
-                                      x.id === e.id
-                                        ? { ...x, due_day: val }
-                                        : x,
-                                    ),
-                                  );
-                                  updateEntry(
-                                    e.id,
-                                    "due_day",
-                                    val ? Number(val) : null,
-                                  );
-                                }}
-                              />
-                            </td>
-                          )}
-
-                          {section !== "income" &&
-                            section !== "carried_over" && (
+                        <tbody>
+                          {visibleSectionEntries.map((e) => (
+                            <tr key={e.id} className={e.paid ? "paid-row" : ""}>
                               <td>
-                                {editingCategoryId === e.id ? (
-                                  <select
-                                    className="category-select"
-                                    value={e.category || "other"}
-                                    autoFocus
-                                    onBlur={() => setEditingCategoryId(null)}
+                                <input
+                                  value={e.name}
+                                  onChange={(ev) => {
+                                    const val = ev.target.value;
+                                    setEntries((prev) =>
+                                      prev.map((x) =>
+                                        x.id === e.id ? { ...x, name: val } : x,
+                                      ),
+                                    );
+                                    updateEntry(e.id, "name", val);
+                                  }}
+                                />
+                              </td>
+
+                              <td>
+                                <input
+                                  type="number"
+                                  value={e.amount}
+                                  onChange={(ev) => {
+                                    const val = ev.target.value;
+                                    setEntries((prev) =>
+                                      prev.map((x) =>
+                                        x.id === e.id
+                                          ? { ...x, amount: val }
+                                          : x,
+                                      ),
+                                    );
+                                    updateEntry(e.id, "amount", Number(val));
+                                  }}
+                                />
+                              </td>
+
+                              <td
+                                className={`budget-tracker-summary ${
+                                  e.track_spending
+                                    ? "clickable-budget-tracker"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  if (e.track_spending) {
+                                    openBudgetTracker(e);
+                                  }
+                                }}
+                              >
+                                {e.track_spending ? (
+                                  <>
+                                    <span>
+                                      Spent:
+                                      <strong>
+                                        {money(getBudgetSpentTotal(e.id))}
+                                      </strong>
+                                    </span>
+
+                                    <span>
+                                      Left:
+                                      <strong>
+                                        {money(getBudgetRemaining(e))}
+                                      </strong>
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="budget-tracker-empty">
+                                    —
+                                  </span>
+                                )}
+                              </td>
+
+                              {section === "household_bill" && (
+                                <td>
+                                  <input
+                                    type="number"
+                                    value={e.due_day || ""}
                                     onChange={(ev) => {
                                       const val = ev.target.value;
                                       setEntries((prev) =>
                                         prev.map((x) =>
                                           x.id === e.id
-                                            ? { ...x, category: val }
+                                            ? { ...x, due_day: val }
                                             : x,
                                         ),
                                       );
-                                      updateEntry(e.id, "category", val);
-                                      setEditingCategoryId(null);
+                                      updateEntry(
+                                        e.id,
+                                        "due_day",
+                                        val ? Number(val) : null,
+                                      );
                                     }}
-                                  >
-                                    {categories.map((category) => (
-                                      <option
-                                        key={category.value}
-                                        value={category.value}
+                                  />
+                                </td>
+                              )}
+
+                              {section !== "income" &&
+                                section !== "carried_over" && (
+                                  <td>
+                                    {editingCategoryId === e.id ? (
+                                      <select
+                                        className="category-select"
+                                        value={e.category || "other"}
+                                        autoFocus
+                                        onBlur={() =>
+                                          setEditingCategoryId(null)
+                                        }
+                                        onChange={(ev) => {
+                                          const val = ev.target.value;
+                                          setEntries((prev) =>
+                                            prev.map((x) =>
+                                              x.id === e.id
+                                                ? { ...x, category: val }
+                                                : x,
+                                            ),
+                                          );
+                                          updateEntry(e.id, "category", val);
+                                          setEditingCategoryId(null);
+                                        }}
                                       >
-                                        {category.icon} {category.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
+                                        {categories.map((category) => (
+                                          <option
+                                            key={category.value}
+                                            value={category.value}
+                                          >
+                                            {category.icon} {category.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className={`category-badge category-${e.category || "other"}`}
+                                        onClick={() =>
+                                          setEditingCategoryId(e.id)
+                                        }
+                                      >
+                                        {categories.find(
+                                          (category) =>
+                                            category.value ===
+                                            (e.category || "other"),
+                                        )?.icon || "📌"}
+                                      </button>
+                                    )}
+                                  </td>
+                                )}
+
+                              {section !== "income" &&
+                                section !== "carried_over" && (
+                                  <td>
+                                    <input
+                                      type="checkbox"
+                                      checked={!!e.paid}
+                                      onChange={(ev) => {
+                                        const checked = ev.target.checked;
+                                        setEntries((prev) =>
+                                          prev.map((x) =>
+                                            x.id === e.id
+                                              ? { ...x, paid: checked }
+                                              : x,
+                                          ),
+                                        );
+                                        updateEntry(e.id, "paid", checked);
+                                        showToast(
+                                          checked
+                                            ? "✅ Bill marked paid"
+                                            : "↩️ Bill marked unpaid",
+                                        );
+                                      }}
+                                    />
+                                  </td>
+                                )}
+
+                              <td className="row-actions">
+                                {(section === "household_bill" ||
+                                  section === "regular_payment") && (
                                   <button
                                     type="button"
-                                    className={`category-badge category-${e.category || "other"}`}
-                                    onClick={() => setEditingCategoryId(e.id)}
+                                    title={
+                                      e.track_spending
+                                        ? "Stop tracking spending"
+                                        : "Track spending"
+                                    }
+                                    className={
+                                      e.track_spending
+                                        ? "track-spending-button active"
+                                        : "track-spending-button"
+                                    }
+                                    onClick={() => toggleTrackSpending(e)}
                                   >
-                                    {categories.find(
-                                      (category) =>
-                                        category.value ===
-                                        (e.category || "other"),
-                                    )?.icon || "📌"}
+                                    💰
                                   </button>
                                 )}
-                              </td>
-                            )}
 
-                          {section !== "income" &&
-                            section !== "carried_over" && (
-                              <td>
-                                <input
-                                  type="checkbox"
-                                  checked={!!e.paid}
-                                  onChange={(ev) => {
-                                    const checked = ev.target.checked;
-                                    setEntries((prev) =>
-                                      prev.map((x) =>
-                                        x.id === e.id
-                                          ? { ...x, paid: checked }
-                                          : x,
-                                      ),
-                                    );
-                                    updateEntry(e.id, "paid", checked);
-                                    showToast(
-                                      checked
-                                        ? "✅ Bill marked paid"
-                                        : "↩️ Bill marked unpaid",
-                                    );
-                                  }}
-                                />
-                              </td>
-                            )}
-
-                          <td className="row-actions">
-                            {(section === "household_bill" ||
-                              section === "regular_payment") && (
-                              <button
-                                type="button"
-                                title={
-                                  e.track_spending
-                                    ? "Stop tracking spending"
-                                    : "Track spending"
-                                }
-                                className={
-                                  e.track_spending
-                                    ? "track-spending-button active"
-                                    : "track-spending-button"
-                                }
-                                onClick={() => toggleTrackSpending(e)}
-                              >
-                                💰
-                              </button>
-                            )}
-
-                            <button
-                              title="Duplicate"
-                              onClick={() => duplicateEntry(e)}
-                            >
-                              ⧉
-                            </button>
-
-                            <button
-                              title="Delete"
-                              onClick={() => deleteEntry(e.id)}
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          );
-        },
-      )}
-
-      {activeBudgetEntry && (
-        <div className="budget-modal-backdrop" onClick={closeBudgetTracker}>
-          <div className="budget-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="budget-modal-header">
-              <div>
-                <h2>{activeBudgetEntry.name}</h2>
-                <p>Monthly spending tracker</p>
-              </div>
-
-              <button
-                type="button"
-                className="budget-modal-close"
-                onClick={closeBudgetTracker}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="budget-modal-totals">
-              <div>
-                <span>Budget</span>
-                <strong>{money(activeBudgetEntry.amount)}</strong>
-              </div>
-
-              <div>
-                <span>Spent</span>
-                <strong>
-                  {money(getBudgetSpentTotal(activeBudgetEntry.id))}
-                </strong>
-              </div>
-
-              <div>
-                <span>Remaining</span>
-                <strong>{money(getBudgetRemaining(activeBudgetEntry))}</strong>
-              </div>
-            </div>
-
-            <div
-              className={`budget-modal-progress ${getBudgetStatusClass(
-                activeBudgetEntry,
-              )}`}
-            >
-              <div className="budget-modal-progress-label">
-                <span>
-                  {Math.round(getBudgetSpentPercent(activeBudgetEntry))}% used
-                </span>
-
-                <strong>
-                  {getBudgetRemaining(activeBudgetEntry) >= 0
-                    ? `${money(getBudgetRemaining(activeBudgetEntry))} remaining`
-                    : `${money(
-                        Math.abs(getBudgetRemaining(activeBudgetEntry)),
-                      )} over budget`}
-                </strong>
-              </div>
-
-              <div className="budget-modal-progress-bar">
-                <div
-                  className="budget-modal-progress-fill"
-                  style={{
-                    width: `${Math.min(
-                      getBudgetSpentPercent(activeBudgetEntry),
-                      100,
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <form className="budget-spend-form" onSubmit={addBudgetSpend}>
-              <input
-                type="text"
-                list="budget-merchant-suggestions"
-                placeholder="Where / what was this spend?"
-                value={budgetSpendForm.description}
-                onChange={(e) =>
-                  setBudgetSpendForm({
-                    ...budgetSpendForm,
-                    description: e.target.value,
-                  })
-                }
-              />
-
-              <datalist id="budget-merchant-suggestions">
-                {budgetMerchantSuggestions.map((merchant) => (
-                  <option key={merchant} value={merchant} />
-                ))}
-              </datalist>
-
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="Amount"
-                value={budgetSpendForm.amount}
-                onChange={(e) =>
-                  setBudgetSpendForm({
-                    ...budgetSpendForm,
-                    amount: e.target.value,
-                  })
-                }
-                required
-              />
-
-              <input
-                type="date"
-                value={budgetSpendForm.spent_date}
-                onChange={(e) =>
-                  setBudgetSpendForm({
-                    ...budgetSpendForm,
-                    spent_date: e.target.value,
-                  })
-                }
-              />
-
-              <button type="submit">+ Add Spend</button>
-            </form>
-
-            <div className="budget-spend-history">
-              <h3>Spending History</h3>
-
-              {getBudgetSpendingForEntry(activeBudgetEntry.id).length === 0 ? (
-                <p className="budget-spend-empty">No spending recorded yet.</p>
-              ) : (
-                getBudgetSpendingForEntry(activeBudgetEntry.id).map(
-                  (item, index, allItems) => {
-                    const spentUpToThisPoint = allItems
-                      .slice(0, index + 1)
-                      .reduce(
-                        (sum, spend) => sum + Number(spend.amount || 0),
-                        0,
-                      );
-
-                    const remainingAfterSpend =
-                      Number(activeBudgetEntry.amount || 0) -
-                      spentUpToThisPoint;
-
-                    return (
-                      <div className="budget-spend-history-item" key={item.id}>
-                        {editingBudgetSpendId === item.id ? (
-                          <div className="budget-spend-edit-row">
-                            <input
-                              value={budgetSpendEditForm.description}
-                              onChange={(e) =>
-                                setBudgetSpendEditForm({
-                                  ...budgetSpendEditForm,
-                                  description: e.target.value,
-                                })
-                              }
-                            />
-
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={budgetSpendEditForm.amount}
-                              onChange={(e) =>
-                                setBudgetSpendEditForm({
-                                  ...budgetSpendEditForm,
-                                  amount: e.target.value,
-                                })
-                              }
-                            />
-
-                            <input
-                              type="date"
-                              value={budgetSpendEditForm.spent_date}
-                              onChange={(e) =>
-                                setBudgetSpendEditForm({
-                                  ...budgetSpendEditForm,
-                                  spent_date: e.target.value,
-                                })
-                              }
-                            />
-
-                            <button
-                              type="button"
-                              onClick={() => updateBudgetSpend(item.id)}
-                            >
-                              ✓
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={cancelEditBudgetSpend}
-                            >
-                              ↩
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="budget-spend-history-main">
-                              <div>
-                                <strong>{item.description || "Spend"}</strong>
-
-                                {item.spent_date && (
-                                  <span>
-                                    {new Date(
-                                      `${item.spent_date}T00:00:00`,
-                                    ).toLocaleDateString("en-GB")}
-                                  </span>
-                                )}
-                              </div>
-
-                              <strong>{money(item.amount)}</strong>
-                            </div>
-
-                            <div className="budget-spend-history-meta">
-                              <span>
-                                Remaining:{" "}
-                                <strong>{money(remainingAfterSpend)}</strong>
-                              </span>
-
-                              <div>
                                 <button
-                                  type="button"
-                                  title="Edit"
-                                  onClick={() => startEditBudgetSpend(item)}
+                                  title="Duplicate"
+                                  onClick={() => duplicateEntry(e)}
                                 >
-                                  ✎
+                                  ⧉
                                 </button>
 
                                 <button
-                                  type="button"
                                   title="Delete"
-                                  onClick={() => deleteBudgetSpend(item.id)}
+                                  onClick={() => deleteEntry(e.id)}
                                 >
                                   ✕
                                 </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              );
+            },
+          )}
+
+          {activeBudgetEntry && (
+            <div className="budget-modal-backdrop" onClick={closeBudgetTracker}>
+              <div
+                className="budget-modal"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="budget-modal-header">
+                  <div>
+                    <h2>{activeBudgetEntry.name}</h2>
+                    <p>Monthly spending tracker</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="budget-modal-close"
+                    onClick={closeBudgetTracker}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="budget-modal-totals">
+                  <div>
+                    <span>Budget</span>
+                    <strong>{money(activeBudgetEntry.amount)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Spent</span>
+                    <strong>
+                      {money(getBudgetSpentTotal(activeBudgetEntry.id))}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Remaining</span>
+                    <strong>
+                      {money(getBudgetRemaining(activeBudgetEntry))}
+                    </strong>
+                  </div>
+                </div>
+
+                <div
+                  className={`budget-modal-progress ${getBudgetStatusClass(
+                    activeBudgetEntry,
+                  )}`}
+                >
+                  <div className="budget-modal-progress-label">
+                    <span>
+                      {Math.round(getBudgetSpentPercent(activeBudgetEntry))}%
+                      used
+                    </span>
+
+                    <strong>
+                      {getBudgetRemaining(activeBudgetEntry) >= 0
+                        ? `${money(getBudgetRemaining(activeBudgetEntry))} remaining`
+                        : `${money(
+                            Math.abs(getBudgetRemaining(activeBudgetEntry)),
+                          )} over budget`}
+                    </strong>
+                  </div>
+
+                  <div className="budget-modal-progress-bar">
+                    <div
+                      className="budget-modal-progress-fill"
+                      style={{
+                        width: `${Math.min(
+                          getBudgetSpentPercent(activeBudgetEntry),
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <form className="budget-spend-form" onSubmit={addBudgetSpend}>
+                  <input
+                    type="text"
+                    list="budget-merchant-suggestions"
+                    placeholder="Where / what was this spend?"
+                    value={budgetSpendForm.description}
+                    onChange={(e) =>
+                      setBudgetSpendForm({
+                        ...budgetSpendForm,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+
+                  <datalist id="budget-merchant-suggestions">
+                    {budgetMerchantSuggestions.map((merchant) => (
+                      <option key={merchant} value={merchant} />
+                    ))}
+                  </datalist>
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="Amount"
+                    value={budgetSpendForm.amount}
+                    onChange={(e) =>
+                      setBudgetSpendForm({
+                        ...budgetSpendForm,
+                        amount: e.target.value,
+                      })
+                    }
+                    required
+                  />
+
+                  <input
+                    type="date"
+                    value={budgetSpendForm.spent_date}
+                    onChange={(e) =>
+                      setBudgetSpendForm({
+                        ...budgetSpendForm,
+                        spent_date: e.target.value,
+                      })
+                    }
+                  />
+
+                  <button type="submit">+ Add Spend</button>
+                </form>
+
+                <div className="budget-spend-history">
+                  <h3>Spending History</h3>
+
+                  {getBudgetSpendingForEntry(activeBudgetEntry.id).length ===
+                  0 ? (
+                    <p className="budget-spend-empty">
+                      No spending recorded yet.
+                    </p>
+                  ) : (
+                    getBudgetSpendingForEntry(activeBudgetEntry.id).map(
+                      (item, index, allItems) => {
+                        const spentUpToThisPoint = allItems
+                          .slice(0, index + 1)
+                          .reduce(
+                            (sum, spend) => sum + Number(spend.amount || 0),
+                            0,
+                          );
+
+                        const remainingAfterSpend =
+                          Number(activeBudgetEntry.amount || 0) -
+                          spentUpToThisPoint;
+
+                        return (
+                          <div
+                            className="budget-spend-history-item"
+                            key={item.id}
+                          >
+                            {editingBudgetSpendId === item.id ? (
+                              <div className="budget-spend-edit-row">
+                                <input
+                                  value={budgetSpendEditForm.description}
+                                  onChange={(e) =>
+                                    setBudgetSpendEditForm({
+                                      ...budgetSpendEditForm,
+                                      description: e.target.value,
+                                    })
+                                  }
+                                />
+
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={budgetSpendEditForm.amount}
+                                  onChange={(e) =>
+                                    setBudgetSpendEditForm({
+                                      ...budgetSpendEditForm,
+                                      amount: e.target.value,
+                                    })
+                                  }
+                                />
+
+                                <input
+                                  type="date"
+                                  value={budgetSpendEditForm.spent_date}
+                                  onChange={(e) =>
+                                    setBudgetSpendEditForm({
+                                      ...budgetSpendEditForm,
+                                      spent_date: e.target.value,
+                                    })
+                                  }
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => updateBudgetSpend(item.id)}
+                                >
+                                  ✓
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={cancelEditBudgetSpend}
+                                >
+                                  ↩
+                                </button>
                               </div>
-                            </div>
-                          </>
-                        )}
+                            ) : (
+                              <>
+                                <div className="budget-spend-history-main">
+                                  <div>
+                                    <strong>
+                                      {item.description || "Spend"}
+                                    </strong>
+
+                                    {item.spent_date && (
+                                      <span>
+                                        {new Date(
+                                          `${item.spent_date}T00:00:00`,
+                                        ).toLocaleDateString("en-GB")}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <strong>{money(item.amount)}</strong>
+                                </div>
+
+                                <div className="budget-spend-history-meta">
+                                  <span>
+                                    Remaining:{" "}
+                                    <strong>
+                                      {money(remainingAfterSpend)}
+                                    </strong>
+                                  </span>
+
+                                  <div>
+                                    <button
+                                      type="button"
+                                      title="Edit"
+                                      onClick={() => startEditBudgetSpend(item)}
+                                    >
+                                      ✎
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      title="Delete"
+                                      onClick={() => deleteBudgetSpend(item.id)}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      },
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeView === "insights" && (
+        <div className="insights-page">
+          <div className="insights-heading">
+            <div>
+              <h2>📈 Insights</h2>
+              <p>
+                See where your money is going and how your spending changes over
+                time.
+              </p>
+            </div>
+          </div>
+
+          <div className="insights-range">
+            <button
+              type="button"
+              className={insightsRange === "this_month" ? "active" : ""}
+              onClick={() => setInsightsRange("this_month")}
+            >
+              This Month
+            </button>
+
+            <button
+              type="button"
+              className={insightsRange === "last_month" ? "active" : ""}
+              onClick={() => setInsightsRange("last_month")}
+            >
+              Last Month
+            </button>
+
+            <button
+              type="button"
+              className={insightsRange === "last_3_months" ? "active" : ""}
+              onClick={() => setInsightsRange("last_3_months")}
+            >
+              Last 3 Months
+            </button>
+
+            <button
+              type="button"
+              className={insightsRange === "year" ? "active" : ""}
+              onClick={() => setInsightsRange("year")}
+            >
+              This Year
+            </button>
+          </div>
+
+          <div className="merchant-rules-panel">
+            <button
+              type="button"
+              className="merchant-rules-toggle"
+              onClick={() => setShowMerchantRules((prev) => !prev)}
+            >
+              {showMerchantRules ? "▼" : "▶"} Merchant Rules
+            </button>
+
+            {showMerchantRules && (
+              <div className="merchant-rules-content">
+                <p>
+                  Automatically group different merchant names under one clean
+                  name.
+                </p>
+
+                <form
+                  className="merchant-rules-form"
+                  onSubmit={addMerchantRule}
+                >
+                  <input
+                    type="text"
+                    placeholder="Contains e.g. tesco"
+                    value={merchantRuleForm.match_text}
+                    onChange={(e) =>
+                      setMerchantRuleForm({
+                        ...merchantRuleForm,
+                        match_text: e.target.value,
+                      })
+                    }
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="Display as e.g. Tesco"
+                    value={merchantRuleForm.display_name}
+                    onChange={(e) =>
+                      setMerchantRuleForm({
+                        ...merchantRuleForm,
+                        display_name: e.target.value,
+                      })
+                    }
+                  />
+
+                  <button type="submit">+ Add Rule</button>
+                </form>
+
+                {merchantRules.length > 0 && (
+                  <div className="merchant-rules-list">
+                    {merchantRules.map((rule) => (
+                      <div className="merchant-rule-item" key={rule.id}>
+                        <span>
+                          <strong>{rule.match_text}</strong>
+                          {" → "}
+                          {rule.display_name}
+                        </span>
+
+                        <button
+                          type="button"
+                          title="Delete rule"
+                          onClick={() => deleteMerchantRule(rule.id)}
+                        >
+                          ✕
+                        </button>
                       </div>
-                    );
-                  },
-                )
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="insights-kpis">
+            <div className="insights-kpi">
+              <span className="insights-kpi-icon">💰</span>
+
+              <div>
+                <span>Total Spend</span>
+
+                <strong>
+                  <AnimatedMoney value={insightsData.totalSpend} />
+                </strong>
+
+                {insightsRange === "this_month" &&
+                  insightsData.previousMonthTotal > 0 && (
+                    <small
+                      className={
+                        insightsData.monthDifference > 0
+                          ? "insights-change-up"
+                          : insightsData.monthDifference < 0
+                            ? "insights-change-down"
+                            : "insights-change-neutral"
+                      }
+                    >
+                      {insightsData.monthDifference > 0
+                        ? "▲"
+                        : insightsData.monthDifference < 0
+                          ? "▼"
+                          : "•"}{" "}
+                      {Math.abs(insightsData.monthDifferencePercent).toFixed(1)}
+                      % vs last month
+                    </small>
+                  )}
+              </div>
+            </div>
+
+            <div className="insights-kpi">
+              <span className="insights-kpi-icon">🧾</span>
+
+              <div>
+                <span>Transactions</span>
+                <strong>{insightsData.transactionCount}</strong>
+              </div>
+            </div>
+
+            <div className="insights-kpi">
+              <span className="insights-kpi-icon">📅</span>
+
+              <div>
+                <span>Average / Week</span>
+
+                <strong>
+                  <AnimatedMoney value={insightsData.averageWeekly} />
+                </strong>
+              </div>
+            </div>
+
+            <div className="insights-kpi">
+              <span className="insights-kpi-icon">🏪</span>
+
+              <div>
+                <span>Biggest Merchant</span>
+                <strong>{insightsData.biggestMerchant.merchant}</strong>
+
+                <small>{money(insightsData.biggestMerchant.total)}</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="insights-charts-grid">
+            <div className="insights-chart-card">
+              <h3>Spending by Category</h3>
+
+              {insightsData.categoryData.length === 0 ? (
+                <p className="insights-empty">
+                  No spending data for this period.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={insightsData.categoryData}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={100}
+                      label={({ name }) => name}
+                    >
+                      {insightsData.categoryData.map((entry, index) => (
+                        <Cell
+                          key={`${entry.name}-${index}`}
+                          cursor="pointer"
+                          onClick={() => {
+                            setInsightsDrilldown({
+                              type: "category",
+                              label: entry.name,
+                              value: entry.category,
+                            });
+                          }}
+                          fill={
+                            [
+                              "#17304f",
+                              "#d4a928",
+                              "#29a65a",
+                              "#7c6bc4",
+                              "#e07a5f",
+                              "#4d8ac7",
+                              "#bf6a9b",
+                              "#8590a6",
+                            ][index % 8]
+                          }
+                        />
+                      ))}
+                    </Pie>
+
+                    <Tooltip formatter={(value) => money(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
               )}
+            </div>
+
+            <div className="insights-chart-card">
+              <h3>Monthly Spending Trend</h3>
+
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={insightsData.monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => money(value)} />
+
+                  <Line
+                    type="monotone"
+                    dataKey="spend"
+                    stroke="#17304f"
+                    strokeWidth={3}
+                    dot={(props) => {
+                      const { cx, cy, payload } = props;
+
+                      return (
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={5}
+                          fill="#ffffff"
+                          stroke="#17304f"
+                          strokeWidth={2}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            if (!payload) return;
+
+                            setInsightsDrilldown({
+                              type: "month",
+                              label: payload.month,
+                              value: payload.month,
+                            });
+                          }}
+                        />
+                      );
+                    }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {(insightsRange === "this_month" ||
+              insightsRange === "last_month") && (
+              <div className="insights-chart-card">
+                <h3>Weekly Spending</h3>
+
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={insightsData.weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => money(value)} />
+
+                    <Bar dataKey="spend" fill="#d4a928" radius={[8, 8, 0, 0]}>
+                      {insightsData.weeklyData.map((week) => (
+                        <Cell
+                          key={week.weekNumber}
+                          cursor="pointer"
+                          onClick={() => {
+                            setInsightsDrilldown({
+                              type: "week",
+                              label: week.week,
+                              value: week.weekNumber,
+                            });
+                          }}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            <div className="insights-chart-card">
+              <h3>Top Merchants</h3>
+
+              {insightsData.topMerchants.length === 0 ? (
+                <p className="insights-empty">No merchant data yet.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={insightsData.topMerchants}
+                    layout="vertical"
+                    margin={{
+                      left: 20,
+                      right: 20,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis
+                      type="category"
+                      dataKey="merchant"
+                      width={140}
+                      tick={{
+                        fontSize: 11,
+                        fill: "#17304f",
+                      }}
+                    />
+                    <Tooltip formatter={(value) => money(value)} />
+
+                    <Bar
+                      dataKey="total"
+                      fill="#17304f"
+                      radius={[0, 8, 8, 0]}
+                      cursor="pointer"
+                      onClick={(data) => {
+                        if (!data) return;
+
+                        setInsightsDrilldown({
+                          type: "merchant",
+                          label: data.merchant,
+                          value: data.merchant,
+                        });
+                      }}
+                    >
+                      {insightsData.topMerchants.map((merchant) => (
+                        <Cell key={merchant.merchant} fill="#17304f" />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {insightsDrilldown && (
+            <div className="insights-drilldown">
+              <div className="insights-drilldown-header">
+                <div>
+                  <h3>{insightsDrilldown.label}</h3>
+
+                  {insightsDrilldown.type === "merchant" &&
+                    !renamingMerchant && (
+                      <button
+                        type="button"
+                        className="merchant-rename-button"
+                        onClick={() => {
+                          setMerchantRenameValue(insightsDrilldown.label);
+                          setRenamingMerchant(true);
+                        }}
+                      >
+                        ✏ Rename Merchant
+                      </button>
+                    )}
+
+                  {insightsDrilldown.type === "merchant" &&
+                    renamingMerchant && (
+                      <div className="merchant-rename-form">
+                        <input
+                          type="text"
+                          value={merchantRenameValue}
+                          onChange={(e) =>
+                            setMerchantRenameValue(e.target.value)
+                          }
+                          placeholder="Merchant display name"
+                          autoFocus
+                        />
+
+                        <button type="button" onClick={saveMerchantAlias}>
+                          Save
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingMerchant(false);
+                            setMerchantRenameValue("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+
+                  <p>
+                    {insightsDrilldown.type === "merchant" &&
+                      "Transactions for this merchant"}
+
+                    {insightsDrilldown.type === "category" &&
+                      "Transactions in this category"}
+
+                    {insightsDrilldown.type === "week" &&
+                      "Transactions during this week"}
+
+                    {insightsDrilldown.type === "month" &&
+                      "Transactions during this month"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsightsDrilldown(null);
+                    setInsightsDrilldownSearch("");
+                    setRenamingMerchant(false);
+                    setMerchantRenameValue("");
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="insights-drilldown-summary">
+                <div>
+                  <span>Total Spend</span>
+                  <strong>
+                    <AnimatedMoney value={insightsDrilldownTotal} />
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Transactions</span>
+                  <strong>{insightsDrilldownCount}</strong>
+                </div>
+              </div>
+
+              <div>
+                <span>Average Spend</span>
+                <strong>
+                  <AnimatedMoney value={insightsDrilldownAverage} />
+                </strong>
+              </div>
+
+              <div className="insights-drilldown-sort">
+                <button
+                  type="button"
+                  className={insightsDrilldownSort === "newest" ? "active" : ""}
+                  onClick={() => setInsightsDrilldownSort("newest")}
+                >
+                  Newest
+                </button>
+
+                <button
+                  type="button"
+                  className={insightsDrilldownSort === "oldest" ? "active" : ""}
+                  onClick={() => setInsightsDrilldownSort("oldest")}
+                >
+                  Oldest
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    insightsDrilldownSort === "highest" ? "active" : ""
+                  }
+                  onClick={() => setInsightsDrilldownSort("highest")}
+                >
+                  Highest £
+                </button>
+
+                <button
+                  type="button"
+                  className={insightsDrilldownSort === "lowest" ? "active" : ""}
+                  onClick={() => setInsightsDrilldownSort("lowest")}
+                >
+                  Lowest £
+                </button>
+              </div>
+
+              <div className="insights-drilldown-search">
+                <input
+                  type="search"
+                  placeholder="Search transactions..."
+                  value={insightsDrilldownSearch}
+                  onChange={(e) => setInsightsDrilldownSearch(e.target.value)}
+                />
+
+                {insightsDrilldownSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setInsightsDrilldownSearch("")}
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="insights-drilldown-list">
+                {insightsDrilldownItems.length === 0 ? (
+                  <p>No transactions found.</p>
+                ) : (
+                  insightsDrilldownItems.map((item) => (
+                    <div className="insights-drilldown-item" key={item.id}>
+                      <div>
+                        <strong>{item.description}</strong>
+
+                        <span>
+                          {item.spent_date
+                            ? new Date(
+                                `${item.spent_date}T00:00:00`,
+                              ).toLocaleDateString("en-GB")
+                            : `${item.month} ${item.year}`}
+                        </span>
+                      </div>
+
+                      <strong>{money(item.amount)}</strong>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="insights-observations">
+            <h3>📊 Spending Insights</h3>
+
+            <div className="insights-observation-grid">
+              <div>
+                <span>🏪</span>
+                <p>
+                  Your biggest merchant is{" "}
+                  <strong>{insightsData.biggestMerchant.merchant}</strong> at{" "}
+                  {money(insightsData.biggestMerchant.total)}.
+                </p>
+              </div>
+
+              <div>
+                <span>📅</span>
+                <p>
+                  Your average weekly spending is{" "}
+                  <strong>{money(insightsData.averageWeekly)}</strong>.
+                </p>
+              </div>
+
+              {insightsRange === "this_month" && (
+                <div>
+                  <span>{insightsData.monthDifference > 0 ? "📈" : "📉"}</span>
+
+                  <p>
+                    This month you have spent{" "}
+                    <strong>
+                      {money(Math.abs(insightsData.monthDifference))}
+                    </strong>{" "}
+                    {insightsData.monthDifference > 0
+                      ? "more"
+                      : insightsData.monthDifference < 0
+                        ? "less"
+                        : "the same"}{" "}
+                    than last month.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <span>🧾</span>
+                <p>
+                  You have logged{" "}
+                  <strong>{insightsData.transactionCount}</strong> transactions
+                  in the selected period.
+                </p>
+              </div>
             </div>
           </div>
         </div>
