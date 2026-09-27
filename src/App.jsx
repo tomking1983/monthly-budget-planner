@@ -204,12 +204,18 @@ export default function App() {
   const [targetYear, setTargetYear] = useState(
     currentDate.getMonth() === 11 ? currentYear + 1 : currentYear,
   );
-  const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
-  const [entries, setEntries] = useState([]);
-  const [weeklySpending, setWeeklySpending] = useState([]);
-  const [weeklyStatus, setWeeklyStatus] = useState([]);
-  const [budgetSpending, setBudgetSpending] = useState([]);
-  const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
+const [resetOnDuplicate, setResetOnDuplicate] = useState(false);
+const [entries, setEntries] = useState([]);
+const [weeklySpending, setWeeklySpending] = useState([]);
+const [weeklyStatus, setWeeklyStatus] = useState([]);
+
+const [receiptScanning, setReceiptScanning] = useState(false);
+const [receiptResult, setReceiptResult] = useState(null);
+const [receiptScanError, setReceiptScanError] = useState("");
+const [receiptScanSuccess, setReceiptScanSuccess] = useState(false);
+
+const [budgetSpending, setBudgetSpending] = useState([]);
+const [activeBudgetEntry, setActiveBudgetEntry] = useState(null);
 
   const [budgetSpendForm, setBudgetSpendForm] = useState({
     description: "",
@@ -521,6 +527,99 @@ export default function App() {
     });
 
     loadEntries();
+  }
+
+  async function compressReceiptImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const image = new Image();
+
+        image.onload = () => {
+          const maxWidth = 1600;
+          const scale = Math.min(1, maxWidth / image.width);
+
+          const width = Math.round(image.width * scale);
+          const height = Math.round(image.height * scale);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+
+          ctx.drawImage(image, 0, 0, width, height);
+
+          const compressedImage = canvas.toDataURL("image/jpeg", 0.82);
+
+          resolve(compressedImage);
+        };
+
+        image.onerror = reject;
+        image.src = reader.result;
+      };
+
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function scanReceipt(file) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose a receipt image.");
+      return;
+    }
+
+    setReceiptScanning(true);
+    setReceiptScanSuccess(false);
+    setReceiptResult(null);
+    setReceiptScanError("");
+
+    try {
+      const image = await compressReceiptImage(file);
+
+      const response = await fetch("/api/scan-receipt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Receipt could not be read.");
+      }
+
+      setReceiptResult({
+        description: data.merchant || "",
+        amount: data.total || "",
+        category: data.suggested_category || "other",
+        spent_date: data.date || "",
+      });
+
+      setReceiptScanSuccess(true);
+
+      setTimeout(() => {
+        setReceiptScanSuccess(false);
+      }, 2500);
+
+      showToast("📸 Receipt scanned");
+    } catch (error) {
+      console.error("Receipt scan failed:", error);
+
+      setReceiptScanError(
+        error.message || "Receipt could not be read. Please try again.",
+      );
+    } finally {
+      setReceiptScanning(false);
+    }
   }
 
   async function addWeeklySpend(e) {
@@ -1450,6 +1549,134 @@ export default function App() {
             Weekly budget: <AnimatedMoney value={totals.weekly} />
           </strong>
         </div>
+
+        <div className="receipt-scanner">
+          <label className="receipt-scan-button">
+            📷 Take / Scan Receipt
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+
+                if (file) {
+                  scanReceipt(file);
+                }
+
+                e.target.value = "";
+              }}
+            />
+          </label>
+
+          {receiptScanning && (
+            <span className="receipt-scan-status">Reading receipt...</span>
+          )}
+        </div>
+
+        {receiptScanSuccess && (
+          <div className="receipt-scan-success">
+            ✓ Receipt scanned successfully
+          </div>
+        )}
+
+        {receiptScanError && (
+          <div className="receipt-scan-error">{receiptScanError}</div>
+        )}
+
+        {receiptResult && (
+          <div className="receipt-review">
+            <div className="receipt-review-header">
+              <div>
+                <strong>Receipt scanned</strong>
+                <span>Check the details before adding it.</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptResult(null);
+                  setReceiptScanError("");
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="receipt-review-fields">
+              <input
+                value={receiptResult.description}
+                placeholder="Merchant"
+                onChange={(e) =>
+                  setReceiptResult({
+                    ...receiptResult,
+                    description: e.target.value,
+                  })
+                }
+              />
+
+              <input
+                type="number"
+                step="0.01"
+                value={receiptResult.amount}
+                placeholder="Amount"
+                onChange={(e) =>
+                  setReceiptResult({
+                    ...receiptResult,
+                    amount: e.target.value,
+                  })
+                }
+              />
+
+              <select
+                value={receiptResult.category}
+                onChange={(e) =>
+                  setReceiptResult({
+                    ...receiptResult,
+                    category: e.target.value,
+                  })
+                }
+              >
+                {categories.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.icon} {category.label}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="date"
+                value={receiptResult.spent_date}
+                onChange={(e) =>
+                  setReceiptResult({
+                    ...receiptResult,
+                    spent_date: e.target.value,
+                  })
+                }
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setWeeklyForm((prev) => ({
+                    ...prev,
+                    description: receiptResult.description,
+                    amount: receiptResult.amount,
+                    category: receiptResult.category,
+                    spent_date: receiptResult.spent_date,
+                  }));
+
+                  setReceiptResult(null);
+                  setReceiptScanError("");
+
+                  showToast("📸 Receipt added to weekly form");
+                }}
+              >
+                Use Receipt
+              </button>
+            </div>
+          </div>
+        )}
 
         <form className="weekly-spend-form" onSubmit={addWeeklySpend}>
           <select

@@ -1095,6 +1095,111 @@ td input[type="checkbox"]:checked {
   font-size: 13px;
 }
 
+.receipt-scanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.receipt-scan-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--gold-soft);
+  color: #8a6d1f;
+  border: 1px solid #f1df9a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.receipt-scan-button input {
+  display: none;
+}
+
+.receipt-scan-status {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.receipt-scan-error {
+  margin-bottom: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.receipt-review {
+  margin-bottom: 14px;
+  padding: 12px;
+  background: var(--card-soft);
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+}
+
+.receipt-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.receipt-review-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.receipt-review-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.receipt-review-header button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.receipt-review-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 170px 150px auto;
+  gap: 8px;
+}
+
+@media (max-width: 800px) {
+  .receipt-review-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .receipt-scan-button {
+    width: 100%;
+  }
+
+  .receipt-scanner {
+    display: grid;
+  }
+}
+
+.receipt-scan-success {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--success-soft);
+  color: #166534;
+  font-size: 13px;
+  font-weight: 800;
+  animation: fadeSlideUp 0.25s ease both;
+}
+
 .weekly-spend-form {
   display: grid;
   grid-template-columns: 120px minmax(180px, 1fr) 120px 170px 160px auto;
